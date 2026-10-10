@@ -1,6 +1,6 @@
 # phi2
 
-[![Static Badge](https://img.shields.io/badge/Arduino-00878F?logo=arduino&logoColor=fff&label=Arduino%20Nano&link=https://store-usa.arduino.cc/products/arduino-nano)](https://store-usa.arduino.cc/products/arduino-nano/)&nbsp;[![GitHub License](https://img.shields.io/github/license/idunmore/phi2)
+[![Static Badge](https://img.shields.io/badge/Arduino-00878F?logo=arduino&logoColor=fff&label=Arduino%20Nano&link=https://store-usa.arduino.cc/products/arduino-nano)](https://store-usa.arduino.cc/products/arduino-nano/)&nbsp;![GitHub License](https://img.shields.io/github/license/idunmore/phi2)
 
 **phi2** is a collection of breadboard-buildable, high-flexible, clock generators for retro/homebrew computers, using a minimal number of inexpensive and readily available micro-controllers, SBCs and other parts.
 
