@@ -16,10 +16,10 @@
 // Interface Definitions
 
 // Button Pins
-#define STEP_BUTTON 4
-#define FREQ_BUTTON 5
+#define STEP_BUTTON  4
+#define FREQ_BUTTON  5
 #define RESET_BUTTON 6
-#define SAVE_BUTTON 6 // TODO: Change to 7 once RESET is implemented!
+#define SAVE_BUTTON  7
 
 // Long Press Duration (in milliseconds)
 #define LONG_PRESS_DURATION 1000
@@ -27,6 +27,10 @@
 // Output Pins
 #define RESET_PIN 8
 #define CLOCK_PIN 9
+
+// State Transition Durations
+#define RESET_DURATION    2 // Time to hold RESB low (in milliseconds)
+#define STEP_PULSE_LENGTH 2 // Time to hold Phi2 low (in millseconds)
 
 // Display Elements
 
@@ -37,6 +41,14 @@
 #define DEFAULT_BRIGHTNESS 8
 #define BLINK_RATE 1
 #define MSG_DURATION 1000     // Time to show status messsage (milliseconds)
+
+// Status Labels
+#define STEP_LABEL  "STEP"
+#define RUN_LABEL   "RUN "
+#define STOP_LABEL  "STOP"
+#define CLOCK_LABEL "CLCK"
+#define RESET_LABEL "RSET"
+#define BRIGHTNESS_FORMAT "Br%2u "
 
 // Create the display instance and buffer
 Adafruit_AlphaNum4 disp = Adafruit_AlphaNum4();
@@ -136,7 +148,7 @@ Frequency *f = b->frequencyBand;
 // Create input buttons
 EasyButton stepButton(STEP_BUTTON);
 EasyButton freqButton(FREQ_BUTTON);
-//EasyButton resetButton(RESET_BUTTON);
+EasyButton resetButton(RESET_BUTTON);
 EasyButton saveButton(SAVE_BUTTON);
 
 enum modes { SINGLE, CLOCK };
@@ -170,39 +182,42 @@ void setFrequency(Frequency* frequency) {
   TCCR1A = OC1A_TOGGLE;  
 }
 
+// Issue a STEP pulse OR toggle between RUN and STOP modes
 void onPressedStep() {
   // Toggle CLOCK/STEP modes
   if (mode == modes::CLOCK) {
     // Toggle RUN/STOP state
     if (state == state::STOP) {
       state = state::RUN;
-      displayLED("RUN ");
+      displayLED(RUN_LABEL);
       delay(MSG_DURATION);
       setFrequency(f);
       disp.blinkRate(BLINK_RATE);      
     } else {
       state = state::STOP;
       TCCR1A = OC1A_OFF;
-      displayLED("STOP");
+      displayLED(STOP_LABEL);
       disp.blinkRate(0);
       delay(MSG_DURATION);        
     }
   } else {
     // STEP
-    displayLED("STEP", true);
+    displayLED(STEP_LABEL, true);
     digitalWrite(CLOCK_PIN, LOW);
     delay(2);
     digitalWrite(CLOCK_PIN, HIGH);
     delay(50);
-    displayLED("STEP", false);
+    displayLED(STEP_LABEL, false);
   }
 }
 
+// New Frequency in current band
 void onPressedFreq() {
   f = f->next_frequency;
   setFrequency(f);  
 }
 
+// Next Frequency Band
 void onLongPressFreq() {  
   b = b->nextBand;
   f = &b->frequencyBand[0];
@@ -211,35 +226,62 @@ void onLongPressFreq() {
   setFrequency(f); 
 }
 
+// Switch between Single STEP and CLOCK modes
 void onLongPressStep() {
   if (mode == modes::SINGLE) {
     mode = modes::CLOCK;
-    displayLED("CLCK");
+    displayLED(CLOCK_LABEL);
+    delay(MSG_DURATION);
+    displayLED(f->display_text);    
   } else {
     mode = modes::SINGLE;
-    digitalWrite(9, HIGH);
-    displayLED("STEP");
+    digitalWrite(CLOCK_PIN, HIGH);
+    displayLED(STEP_LABEL);
     state = state::STOP;
     TCCR1A = OC1A_OFF;
-  }
+  }  
+}
+
+// Cycle the RESET pin LOW, then HIGH
+void onPressedReset() {
+  // Show operation
+  displayLED(RESET_LABEL);
+  // Disable blinking if running
+  if (state == state::RUN) disp.blinkRate(0);
+  // Perform the RESET
+  digitalWrite(RESET_PIN, LOW);
+  delay(RESET_DURATION);
+  digitalWrite(RESET_PIN, HIGH);
+  // Revert display
+  delay(MSG_DURATION);
+  displayLED(f->display_text);
+  if (state == state::RUN) disp.blinkRate(BLINK_RATE);
 }
 
 // Short press on SAVE changes brightness
 void onPressedSave() {
+  // Disable blinking if running
+  if (state == state::RUN) disp.blinkRate(0);
   brightness++;
   if (brightness > MAX_BRIGHTNESS ) brightness = MIN_BRIGHTNESS;
   disp.setBrightness(brightness);
-  sprintf(display_buffer, "Br%2u ", brightness);
-  displayLED((String)display_buffer);
-
+  sprintf(display_buffer, BRIGHTNESS_FORMAT, brightness);
+  displayLED((String)display_buffer);  
   // TODO: In loop() track time since last press, so we can revert
   // to display the frequency!
+  delay(MSG_DURATION / 2);
+  displayLED(f->display_text);
+  if (state == state::RUN) disp.blinkRate(BLINK_RATE);  
 }
 
 void setup() {
 
   // When not operating as OC1A, PIN 9 (Clock) is an OUTPUT
   pinMode(CLOCK_PIN, OUTPUT);
+
+  // RESB (Reset) PIN is HIGH in normal operation
+  pinMode(RESET_PIN, OUTPUT);
+  digitalWrite(RESET_PIN, HIGH);
 
   // TODO: Remove when implementation finished and tested
   // If debugging, uncomment
@@ -260,6 +302,8 @@ void setup() {
   freqButton.onPressedFor(LONG_PRESS_DURATION, onLongPressFreq);
   saveButton.begin();
   saveButton.onPressed(onPressedSave);
+  resetButton.begin();
+  resetButton.onPressed(onPressedReset);
   setFrequency(f);  
 }
 
@@ -267,6 +311,7 @@ void loop() {
   // Read Buttons
   stepButton.read();
   freqButton.read();
+  resetButton.read();
   saveButton.read();
 
   // TODO: After DISP_RESET_DELAY expires, revert to the frequency display.  
