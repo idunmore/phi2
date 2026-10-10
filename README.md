@@ -1,4 +1,4 @@
-# phi2
+# phi2 - Retro/Homebrew Computer Focused Clock Generators
 
 [![Static Badge](https://img.shields.io/badge/Arduino-00878F?logo=arduino&logoColor=fff&label=Arduino%20Nano&link=https://store-usa.arduino.cc/products/arduino-nano)](https://store-usa.arduino.cc/products/arduino-nano/)&nbsp;![GitHub License](https://img.shields.io/github/license/idunmore/phi2)
 
@@ -22,7 +22,9 @@ These will vary per-project.
 
 ### nano-clock
 
-This is the first project.  It has single-step and clock modes, run-stop toggle, selectable frequencies across three bands (Hz, kHz and MHz) in various increments from 1Hz to 8MHz, auto and manual reset functionality (with auto-reset on start option, configurable at run-time), a 14-segment 4-character LED status/info display (in keeping with the "retro" theme) with brightness control and run-time indicators.  This is a simple build, using just an Arduino Nano (an inexpensive clone will work fine) and four tactile buttons.
+This is the first project in the series.
+
+It has single-step and clock modes, run-stop toggle, selectable frequencies across three bands (Hz, kHz and MHz) in various increments from 1Hz to 8MHz, auto and manual reset functionality (with auto-reset on start option, configurable at run-time), a 14-segment 4-character LED status/info display (in keeping with the "retro" theme) with brightness control and run-time indicators.  This is a simple build, using just an Arduino Nano (an inexpensive clone will work fine) and four tactile buttons.
 
 Advanced variations of this will incorporate different display technologies including tiny OLED and TFT color displays, and rich menu/graphical interfaces.
 
@@ -36,4 +38,6 @@ The simplest (just the core capabilities) project provides run-time selectable (
 
 **None** for these projects, unless noted otherwise.
 
-The goal wasn't to build them quickly, it was to have fun doing so and learn as much about the low-level hardware as possible.  That often means hand-optimized coding based on information buried deep in the datasheets for the raw microcontroller cores.  In most cases it also required a fair degree of manual tuning, changing values on the fly while observing output performance across several physical devices on a high-speed oscilloscope.  Variations within quoted tolerance are readily visible here.
+The goal wasn't to build them quickly, it was to have fun doing so and learn as much about the low-level hardware as possible.  That often means hand-optimized coding based on information buried deep in the datasheets for the raw microcontroller cores.
+
+In most cases it also required a fair degree of manual tuning, changing values on the fly while observing output performance across several physical devices on a high-speed oscilloscope.  Variations within quoted tolerance are readily visible here.
