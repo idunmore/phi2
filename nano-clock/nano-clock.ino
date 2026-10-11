@@ -29,8 +29,9 @@
 #define CLOCK_PIN 9
 
 // State Transition Durations
-#define RESET_DURATION    2 // Time to hold RESB low (in milliseconds)
-#define STEP_PULSE_LENGTH 2 // Time to hold Phi2 low (in millseconds)
+#define RESET_DURATION    2  // Time to hold RESB low (in milliseconds)
+#define STEP_PULSE_LENGTH 2  // Time to hold Phi2 low (in milliseconds)
+#define STEP_MSG_DURATION 50 // Time to display "...." (in milliseconds)
 
 // Display Elements
 
@@ -156,6 +157,14 @@ int mode =  modes::CLOCK;
 enum state { RUN, STOP };
 int state = state::STOP;
 
+// Utility Functions
+
+// Abstraction for delay; to allow potential future change
+// to a non-blocking, preemptable, implementation.
+void wait(uint32_t milliseconds) {
+  delay(milliseconds);
+}
+
 // Core Methods
 
 // Write a string to the LED display
@@ -182,6 +191,8 @@ void setFrequency(Frequency* frequency) {
   TCCR1A = OC1A_TOGGLE;  
 }
 
+// Button Event Handlers
+
 // Issue a STEP pulse OR toggle between RUN and STOP modes
 void onPressedStep() {
   // Toggle CLOCK/STEP modes
@@ -190,7 +201,7 @@ void onPressedStep() {
     if (state == state::STOP) {
       state = state::RUN;
       displayLED(RUN_LABEL);
-      delay(MSG_DURATION);
+      wait(MSG_DURATION);
       setFrequency(f);
       disp.blinkRate(BLINK_RATE);      
     } else {
@@ -198,20 +209,25 @@ void onPressedStep() {
       TCCR1A = OC1A_OFF;
       displayLED(STOP_LABEL);
       disp.blinkRate(0);
-      delay(MSG_DURATION);        
+      wait(MSG_DURATION);
+      displayLED(f->display_text);        
     }
   } else {
     // STEP
     displayLED(STEP_LABEL, true);
+    // Emit a LOW pulse
     digitalWrite(CLOCK_PIN, LOW);
+    // This is deliberately blocking!
     delay(2);
     digitalWrite(CLOCK_PIN, HIGH);
-    delay(50);
+    // Keep the "...." displayed long enough to be visible
+    // without meaningfully slowing down STEP actions
+    wait(STEP_MSG_DURATION);
     displayLED(STEP_LABEL, false);
   }
 }
 
-// New Frequency in current band
+// Next Frequency in current band
 void onPressedFreq() {
   f = f->next_frequency;
   setFrequency(f);  
@@ -269,11 +285,12 @@ void onPressedSave() {
   displayLED((String)display_buffer);  
   // TODO: In loop() track time since last press, so we can revert
   // to display the frequency!
-  delay(MSG_DURATION / 2);
+  wait(MSG_DURATION / 2);
   displayLED(f->display_text);
   if (state == state::RUN) disp.blinkRate(BLINK_RATE);  
 }
 
+// Initialize pins, display and startup state
 void setup() {
 
   // When not operating as OC1A, PIN 9 (Clock) is an OUTPUT
@@ -285,7 +302,7 @@ void setup() {
 
   // TODO: Remove when implementation finished and tested
   // If debugging, uncomment
-  // Serial.begin(57600);
+  //Serial.begin(57600);
 
   // Setup the LED Display
   disp.begin(DISPLAY_ADDRESS);
@@ -293,7 +310,7 @@ void setup() {
   disp.clear();
   disp.writeDisplay();
 
-  // Setup the Buttons
+  // Setup the Button's event handlers
   stepButton.begin();
   stepButton.onPressed(onPressedStep);
   stepButton.onPressedFor(LONG_PRESS_DURATION, onLongPressStep);
@@ -307,12 +324,12 @@ void setup() {
   setFrequency(f);  
 }
 
+// Main loop - Everything is event driven basedon button presses
+// while the CLOCK timer output runs in the background automatically
 void loop() {
   // Read Buttons
   stepButton.read();
   freqButton.read();
   resetButton.read();
-  saveButton.read();
-
-  // TODO: After DISP_RESET_DELAY expires, revert to the frequency display.  
+  saveButton.read();      
 }
