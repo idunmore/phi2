@@ -38,7 +38,7 @@
 // Default I2C Address and Brightness for HT16K33 Interface
 #define DISPLAY_ADDRESS 0x70
 #define MAX_BRIGHTNESS 15
-#define MIN_BRIGHTNESS 0      // OFF, for "quiet" usage
+#define MIN_BRIGHTNESS 0      // This is not "OFF"; .clear() for no display
 #define DEFAULT_BRIGHTNESS 8
 #define BLINK_RATE 1
 #define MSG_DURATION 1000     // Time to show status messsage (milliseconds)
@@ -103,12 +103,12 @@ struct Band {
 // (tccr1b_flags) and timer_count values, adding it to the array, and adjusting
 // the indexes and next_* pointers accordingly.
 Frequency hz_frequencies[] = {
-  {0, "  1H", CTS_PRESCALER_256, 0x79B8, &hz_frequencies[1]},
-  {1, "  2H", CTC_PRESCALER_64,  0xF370, &hz_frequencies[2]},
-  {2, "  5H", CTC_PRESCALER_64,  0x615D, &hz_frequencies[3]},
-  {3, " 10H", CTC_PRESCALER_64,  0x30B0, &hz_frequencies[4]},
-  {4, " 25H", CTC_PRESCALER_8,   0x9BCE, &hz_frequencies[5]},
-  {5, " 50H", CTC_PRESCALER_8,   0x4DE4, &hz_frequencies[6]},
+  {0, " 1Hz", CTS_PRESCALER_256, 0x79B8, &hz_frequencies[1]},
+  {1, " 2Hz", CTC_PRESCALER_64,  0xF370, &hz_frequencies[2]},
+  {2, " 5Hz", CTC_PRESCALER_64,  0x615D, &hz_frequencies[3]},
+  {3, "10Hz", CTC_PRESCALER_64,  0x30B0, &hz_frequencies[4]},
+  {4, "25Hz", CTC_PRESCALER_8,   0x9BCE, &hz_frequencies[5]},
+  {5, "50Hz", CTC_PRESCALER_8,   0x4DE4, &hz_frequencies[6]},
   {6, "100H", CTC_PRESCALER_8,   0x2700, &hz_frequencies[7]},
   {7, "250H", CTC_PRESCALER_OFF, 0x7CA4, &hz_frequencies[8]},
   {8, "500H", CTC_PRESCALER_OFF, 0x3E51, &hz_frequencies[0]},
@@ -152,10 +152,17 @@ EasyButton freqButton(FREQ_BUTTON);
 EasyButton resetButton(RESET_BUTTON);
 EasyButton saveButton(SAVE_BUTTON);
 
-enum modes { SINGLE, CLOCK };
-int mode =  modes::CLOCK;
-enum state { RUN, STOP };
-int state = state::STOP;
+// Clock Mode
+enum Modes { SINGLE, CLOCK };
+uint8_t mode =  Modes::CLOCK;
+
+// Clock Run State
+enum States { RUN, STOP };
+uint8_t state = States::STOP;
+
+// Reset on Start
+enum Reset { ENABLE, DISABLE };
+uint8_t reset = Reset::DISABLE;
 
 // Utility Functions
 
@@ -196,16 +203,16 @@ void setFrequency(Frequency* frequency) {
 // Issue a STEP pulse OR toggle between RUN and STOP modes
 void onPressedStep() {
   // Toggle CLOCK/STEP modes
-  if (mode == modes::CLOCK) {
+  if (mode == Modes::CLOCK) {
     // Toggle RUN/STOP state
-    if (state == state::STOP) {
-      state = state::RUN;
+    if (state == States::STOP) {
+      state = States::RUN;
       displayLED(RUN_LABEL);
       wait(MSG_DURATION);
       setFrequency(f);
       disp.blinkRate(BLINK_RATE);      
     } else {
-      state = state::STOP;
+      state = States::STOP;
       TCCR1A = OC1A_OFF;
       displayLED(STOP_LABEL);
       disp.blinkRate(0);
@@ -218,7 +225,7 @@ void onPressedStep() {
     // Emit a LOW pulse
     digitalWrite(CLOCK_PIN, LOW);
     // This is deliberately blocking!
-    delay(2);
+    delay(STEP_PULSE_LENGTH);
     digitalWrite(CLOCK_PIN, HIGH);
     // Keep the "...." displayed long enough to be visible
     // without meaningfully slowing down STEP actions
@@ -238,22 +245,22 @@ void onLongPressFreq() {
   b = b->nextBand;
   f = &b->frequencyBand[0];
   displayLED(b->display_text);
-  delay(MSG_DURATION);
+  wait(MSG_DURATION);
   setFrequency(f); 
 }
 
 // Switch between Single STEP and CLOCK modes
 void onLongPressStep() {
-  if (mode == modes::SINGLE) {
-    mode = modes::CLOCK;
+  if (mode == Modes::SINGLE) {
+    mode = Modes::CLOCK;
     displayLED(CLOCK_LABEL);
-    delay(MSG_DURATION);
+    wait(MSG_DURATION);
     displayLED(f->display_text);    
   } else {
-    mode = modes::SINGLE;
+    mode = Modes::SINGLE;
     digitalWrite(CLOCK_PIN, HIGH);
     displayLED(STEP_LABEL);
-    state = state::STOP;
+    state = States::STOP;
     TCCR1A = OC1A_OFF;
   }  
 }
@@ -263,31 +270,30 @@ void onPressedReset() {
   // Show operation
   displayLED(RESET_LABEL);
   // Disable blinking if running
-  if (state == state::RUN) disp.blinkRate(0);
+  if (state == States::RUN) disp.blinkRate(0);
   // Perform the RESET
   digitalWrite(RESET_PIN, LOW);
+  // This is deliberately blocking!
   delay(RESET_DURATION);
   digitalWrite(RESET_PIN, HIGH);
   // Revert display
-  delay(MSG_DURATION);
+  wait(MSG_DURATION);
   displayLED(f->display_text);
-  if (state == state::RUN) disp.blinkRate(BLINK_RATE);
+  if (state == States::RUN) disp.blinkRate(BLINK_RATE);
 }
 
 // Short press on SAVE changes brightness
 void onPressedSave() {
   // Disable blinking if running
-  if (state == state::RUN) disp.blinkRate(0);
+  if (state == States::RUN) disp.blinkRate(0);
   brightness++;
   if (brightness > MAX_BRIGHTNESS ) brightness = MIN_BRIGHTNESS;
   disp.setBrightness(brightness);
   sprintf(display_buffer, BRIGHTNESS_FORMAT, brightness);
-  displayLED((String)display_buffer);  
-  // TODO: In loop() track time since last press, so we can revert
-  // to display the frequency!
+  displayLED((String)display_buffer);    
   wait(MSG_DURATION / 2);
   displayLED(f->display_text);
-  if (state == state::RUN) disp.blinkRate(BLINK_RATE);  
+  if (state == States::RUN) disp.blinkRate(BLINK_RATE);  
 }
 
 // Initialize pins, display and startup state
@@ -316,11 +322,11 @@ void setup() {
   stepButton.onPressedFor(LONG_PRESS_DURATION, onLongPressStep);
   freqButton.begin();
   freqButton.onPressed(onPressedFreq);
-  freqButton.onPressedFor(LONG_PRESS_DURATION, onLongPressFreq);
-  saveButton.begin();
-  saveButton.onPressed(onPressedSave);
+  freqButton.onPressedFor(LONG_PRESS_DURATION, onLongPressFreq);  
   resetButton.begin();
   resetButton.onPressed(onPressedReset);
+  saveButton.begin();
+  saveButton.onPressed(onPressedSave);
   setFrequency(f);  
 }
 
