@@ -9,7 +9,6 @@ It was built to provide a more flexible alternative to [Ben Eater's](https://eat
 
 ![nano-clock breadboard layout](images/nano-clock_breadboard.png)
 
-
 ## Features
 
 - Single-step and Clock modes
@@ -26,8 +25,16 @@ It was built to provide a more flexible alternative to [Ben Eater's](https://eat
   - Clock-Running indication
 - Save Settings for Auto-Start
 
+## Dependencies
+
+A formal dependency list, with minimum versions, will be added here prior to the first stable release, however the basic library dependencies are:
+
+- EasyButton
+- Adafruit_GFX
+- Adafruit_LEDBackpack
+
 ## Status
 
-Partially implemented, but clock functionality all present.
+All functionality implemented.
 
-Basic operation is complete.  Reset and Save/Load functionality are not yet implemented.  Some clean-up of display behavior and timeouts needs to be added (e.g., returning to the frequency display after changing brightness).
+An optimization pass is required since as-is various LED display and other state changes are duplicated in various events and the load routine.  These behaviors need to be moved to a common "update state" function, leaving the event handlers and load routine to focus purely on mutating state.  In the current state some functions put the display "back" in frequency display mode instead of STEP mode, which will also be fixed as part of this optimization.

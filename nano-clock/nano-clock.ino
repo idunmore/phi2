@@ -4,13 +4,13 @@
 //
 // License: MIT (https://github.com/idunmore/phi2/blob/main/LICENSE)
 
-
 // Core Components
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include "Adafruit_LEDBackpack.h"
+#include <EEPROM.h>
 
 // External Libraries
+#include <Adafruit_GFX.h>
+#include "Adafruit_LEDBackpack.h"
 #include <EasyButton.h>
 
 // Interface Definitions
@@ -44,11 +44,14 @@
 #define MSG_DURATION 1000     // Time to show status messsage (milliseconds)
 
 // Status Labels
-#define STEP_LABEL  "STEP"
-#define RUN_LABEL   "RUN "
-#define STOP_LABEL  "STOP"
-#define CLOCK_LABEL "CLCK"
-#define RESET_LABEL "RSET"
+#define STEP_LABEL      "STEP"
+#define RUN_LABEL       "RUN "
+#define STOP_LABEL      "STOP"
+#define CLOCK_LABEL     "CLCK"
+#define RESET_LABEL     "RSET"
+#define SAVE_LABEL      "SAVE"
+#define RESET_ON_LABEL  "RsON"
+#define RESET_OFF_LABEL "RsOF"
 #define BRIGHTNESS_FORMAT "Br%2u "
 
 // Create the display instance and buffer
@@ -164,6 +167,19 @@ uint8_t state = States::STOP;
 enum Reset { ENABLE, DISABLE };
 uint8_t reset = Reset::DISABLE;
 
+// EEPROM storage 
+#define EEPROM_SENTINEL 0x2A // Unlikely value; indicates presence of saved data
+
+struct SavedData {
+  uint8_t sentinel;
+  Modes mode;
+  States state;
+  Reset reset;
+  uint8_t band;
+  uint8_t frequency;
+  uint8_t brightness;
+};
+
 // Utility Functions
 
 // Abstraction for delay; to allow potential future change
@@ -195,7 +211,46 @@ void setFrequency(Frequency* frequency) {
   OCR1A  = frequency->timer_count;
 
   // Enable the Timer's OUTPUT (Toggle Mode)
-  TCCR1A = OC1A_TOGGLE;  
+  if( state == States::RUN) {
+    TCCR1A = OC1A_TOGGLE;
+    disp.blinkRate(BLINK_RATE);
+  }
+}
+
+// Perform the RESET line toggle
+void doReset() {
+  // Perform the RESET
+  digitalWrite(RESET_PIN, LOW);
+  // This is deliberately blocking!
+  delay(RESET_DURATION);
+  digitalWrite(RESET_PIN, HIGH);
+}
+
+// Load STARTUP state from EEPROM
+void Load() {
+  // Read EEPROM data
+  SavedData data;
+  EEPROM.get(0, data);
+  // Valid save?
+  if (data.sentinel != EEPROM_SENTINEL) return;
+
+  // Valid save, so restore state!
+  brightness = data.brightness;
+  disp.setBrightness(brightness);
+  if (data.reset == Reset::ENABLE) doReset();
+  b = &bands[data.band];
+  f = &b->frequencyBand[data.frequency];
+  mode = data.mode;
+  state = data.state;
+  reset = data.reset;
+
+  // Run the clock if in CLOCK mode AND in RUN state
+  if (data.mode == Modes::CLOCK) {    
+    setFrequency(f);      
+  } else {
+    // STEP mode
+    displayLED(STEP_LABEL);
+  }
 }
 
 // Button Event Handlers
@@ -209,8 +264,7 @@ void onPressedStep() {
       state = States::RUN;
       displayLED(RUN_LABEL);
       wait(MSG_DURATION);
-      setFrequency(f);
-      disp.blinkRate(BLINK_RATE);      
+      setFrequency(f);            
     } else {
       state = States::STOP;
       TCCR1A = OC1A_OFF;
@@ -272,14 +326,24 @@ void onPressedReset() {
   // Disable blinking if running
   if (state == States::RUN) disp.blinkRate(0);
   // Perform the RESET
-  digitalWrite(RESET_PIN, LOW);
-  // This is deliberately blocking!
-  delay(RESET_DURATION);
-  digitalWrite(RESET_PIN, HIGH);
+  doReset();
   // Revert display
   wait(MSG_DURATION);
   displayLED(f->display_text);
   if (state == States::RUN) disp.blinkRate(BLINK_RATE);
+}
+
+// Toggles RESET on Start up flag
+void onLongPressReset() {
+  if (reset == Reset::ENABLE) {
+    reset = Reset::DISABLE;
+    displayLED(RESET_ON_LABEL);
+  } else {
+    reset = Reset::ENABLE;
+    displayLED(RESET_OFF_LABEL);
+  }
+  wait(MSG_DURATION);
+  setFrequency(f);
 }
 
 // Short press on SAVE changes brightness
@@ -296,6 +360,33 @@ void onPressedSave() {
   if (state == States::RUN) disp.blinkRate(BLINK_RATE);  
 }
 
+// Save State to EEPROM
+void onLongPressSave() {
+  // Disable blinking if running
+  if (state == States::RUN) disp.blinkRate(0);
+  // Display operation 
+  displayLED(SAVE_LABEL);
+  // Get the current state and build a save structure 
+  SavedData data;
+  data.sentinel = EEPROM_SENTINEL;
+  data.mode = mode;
+  data.state = state;
+  data.reset = reset;
+  data.brightness = brightness;
+  data.band = b->index;
+  data.frequency = f->index;
+  // Store the data at the start of the EEPROM's memory
+  EEPROM.put(0, data);
+  // Comfirm the action on the display
+  wait(MSG_DURATION);
+  if (mode == Modes::CLOCK) {
+    displayLED(f->display_text);
+    if (state == States::RUN) disp.blinkRate(BLINK_RATE);
+  } else {
+    displayLED(STEP_LABEL);
+  }    
+}
+
 // Initialize pins, display and startup state
 void setup() {
 
@@ -309,6 +400,7 @@ void setup() {
   // TODO: Remove when implementation finished and tested
   // If debugging, uncomment
   //Serial.begin(57600);
+  //while(!Serial);
 
   // Setup the LED Display
   disp.begin(DISPLAY_ADDRESS);
@@ -325,9 +417,22 @@ void setup() {
   freqButton.onPressedFor(LONG_PRESS_DURATION, onLongPressFreq);  
   resetButton.begin();
   resetButton.onPressed(onPressedReset);
+  resetButton.onPressedFor(LONG_PRESS_DURATION, onLongPressReset);
   saveButton.begin();
   saveButton.onPressed(onPressedSave);
-  setFrequency(f);  
+  saveButton.onPressedFor(LONG_PRESS_DURATION, onLongPressSave);
+  setFrequency(f);
+
+  // TODO: Remove Serial Output once SAVE/LOAD is final
+  //Serial.println(EEPROM.length());
+  //for(int i = 0; i < sizeof(SavedData); i++) {
+  //  Serial.print(EEPROM.read(i), HEX);
+  //  Serial.print(",");
+  //}
+  //Serial.println("");
+
+  // Load and Apply saved state
+  Load();
 }
 
 // Main loop - Everything is event driven basedon button presses
