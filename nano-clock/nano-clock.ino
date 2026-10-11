@@ -226,6 +226,17 @@ void doReset() {
   digitalWrite(RESET_PIN, HIGH);
 }
 
+// Update the display state, resetting the clock and enabling
+// RUN mode as necessary
+void updateState(uint16_t milliseconds) {
+  wait(milliseconds);
+  // Put the display back in the proper state
+  if (mode == Modes::CLOCK) {
+    setFrequency(f);    
+  } else {
+    displayLED(STEP_LABEL);
+  }
+}
 // Load STARTUP state from EEPROM
 void Load() {
   // Read EEPROM data
@@ -244,13 +255,9 @@ void Load() {
   state = data.state;
   reset = data.reset;
 
-  // Run the clock if in CLOCK mode AND in RUN state
-  if (data.mode == Modes::CLOCK) {    
-    setFrequency(f);      
-  } else {
-    // STEP mode
-    displayLED(STEP_LABEL);
-  }
+  // Update the display and blink rate, starting the clock
+  // if necessary
+  updateState(0);
 }
 
 // Button Event Handlers
@@ -295,7 +302,8 @@ void onPressedFreq() {
 }
 
 // Next Frequency Band
-void onLongPressFreq() {  
+void onLongPressFreq() {
+  disp.blinkRate(0);  
   b = b->nextBand;
   f = &b->frequencyBand[0];
   displayLED(b->display_text);
@@ -305,11 +313,11 @@ void onLongPressFreq() {
 
 // Switch between Single STEP and CLOCK modes
 void onLongPressStep() {
+  disp.blinkRate(0);
   if (mode == Modes::SINGLE) {
     mode = Modes::CLOCK;
     displayLED(CLOCK_LABEL);
-    wait(MSG_DURATION);
-    displayLED(f->display_text);    
+    updateState(MSG_DURATION);
   } else {
     mode = Modes::SINGLE;
     digitalWrite(CLOCK_PIN, HIGH);
@@ -327,14 +335,16 @@ void onPressedReset() {
   if (state == States::RUN) disp.blinkRate(0);
   // Perform the RESET
   doReset();
+  updateState(MSG_DURATION);
   // Revert display
-  wait(MSG_DURATION);
-  displayLED(f->display_text);
-  if (state == States::RUN) disp.blinkRate(BLINK_RATE);
+  //wait(MSG_DURATION);
+  //displayLED(f->display_text);
+  //if (state == States::RUN) disp.blinkRate(BLINK_RATE);
 }
 
 // Toggles RESET on Start up flag
 void onLongPressReset() {
+  disp.blinkRate(0);
   if (reset == Reset::ENABLE) {
     reset = Reset::DISABLE;
     displayLED(RESET_ON_LABEL);
@@ -342,8 +352,8 @@ void onLongPressReset() {
     reset = Reset::ENABLE;
     displayLED(RESET_OFF_LABEL);
   }
-  wait(MSG_DURATION);
-  setFrequency(f);
+
+  updateState(MSG_DURATION);  
 }
 
 // Short press on SAVE changes brightness
@@ -354,10 +364,9 @@ void onPressedSave() {
   if (brightness > MAX_BRIGHTNESS ) brightness = MIN_BRIGHTNESS;
   disp.setBrightness(brightness);
   sprintf(display_buffer, BRIGHTNESS_FORMAT, brightness);
-  displayLED((String)display_buffer);    
-  wait(MSG_DURATION / 2);
-  displayLED(f->display_text);
-  if (state == States::RUN) disp.blinkRate(BLINK_RATE);  
+  displayLED((String)display_buffer); 
+
+  updateState(MSG_DURATION / 2);
 }
 
 // Save State to EEPROM
@@ -377,14 +386,8 @@ void onLongPressSave() {
   data.frequency = f->index;
   // Store the data at the start of the EEPROM's memory
   EEPROM.put(0, data);
-  // Comfirm the action on the display
-  wait(MSG_DURATION);
-  if (mode == Modes::CLOCK) {
-    displayLED(f->display_text);
-    if (state == States::RUN) disp.blinkRate(BLINK_RATE);
-  } else {
-    displayLED(STEP_LABEL);
-  }    
+  
+  updateState(MSG_DURATION);
 }
 
 // Initialize pins, display and startup state
@@ -396,12 +399,7 @@ void setup() {
   // RESB (Reset) PIN is HIGH in normal operation
   pinMode(RESET_PIN, OUTPUT);
   digitalWrite(RESET_PIN, HIGH);
-
-  // TODO: Remove when implementation finished and tested
-  // If debugging, uncomment
-  //Serial.begin(57600);
-  //while(!Serial);
-
+  
   // Setup the LED Display
   disp.begin(DISPLAY_ADDRESS);
   disp.setBrightness(brightness);
@@ -422,14 +420,6 @@ void setup() {
   saveButton.onPressed(onPressedSave);
   saveButton.onPressedFor(LONG_PRESS_DURATION, onLongPressSave);
   setFrequency(f);
-
-  // TODO: Remove Serial Output once SAVE/LOAD is final
-  //Serial.println(EEPROM.length());
-  //for(int i = 0; i < sizeof(SavedData); i++) {
-  //  Serial.print(EEPROM.read(i), HEX);
-  //  Serial.print(",");
-  //}
-  //Serial.println("");
 
   // Load and Apply saved state
   Load();

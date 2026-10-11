@@ -36,5 +36,3 @@ A formal dependency list, with minimum versions, will be added here prior to the
 ## Status
 
 All functionality implemented.
-
-An optimization pass is required since as-is various LED display and other state changes are duplicated in various events and the load routine.  These behaviors need to be moved to a common "update state" function, leaving the event handlers and load routine to focus purely on mutating state.  In the current state some functions put the display "back" in frequency display mode instead of STEP mode, which will also be fixed as part of this optimization.
