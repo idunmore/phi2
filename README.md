@@ -24,13 +24,17 @@ These will vary per-project.
 
 This is the first project in the series.
 
+![nano-clock breadboard layout](nano-clock/images/nano-clock_breadboard.png)
+
 It has single-step and clock modes, run-stop toggle, selectable frequencies across three bands (Hz, kHz and MHz) in various increments from 1Hz to 8MHz, auto and manual reset functionality (with auto-reset on start option, configurable at run-time), a 14-segment 4-character LED status/info display (in keeping with the "retro" theme) with brightness control and run-time indicators.  This is a simple build, using just an Arduino Nano (an inexpensive clone will work fine) and four tactile buttons.
 
 Advanced variations of this will incorporate different display technologies including tiny OLED and TFT color displays, and rich menu/graphical interfaces.
 
-### nano-clock-core
+### [nano-clock-core](nano-clock-core/)
 
 The simplest (just the core capabilities) project provides run-time selectable (and saveable) 1MHz, 2MHz, 4MHz and 8MHz clock frequencies, auto-starts when powered on, and offers a compile-time flag to enable/disable auto-reset behavior, and indicates operations using the built-in Arduino LED.  It requires only an Arduino Nano (or clone) and a single tactile button, which can be removed once an operating frequency has been selected and saved.
+
+![nano-clock-core breadboard layout](nano-clock-core/images/nano-clock-core_breadboard.png)
 
 **nano-clock-core** is not much bigger than a standard 4-pin crystal oscillator can.
 
