@@ -84,8 +84,6 @@ I used an [Elegoo Arduino Nano v3.0](https://www.amazon.com/ELEGOO-Presoldered-C
 
 The breadboard "schematic", above, shows all of the required connections (just +5V and GND if not using buttons).  In an actual build, you can run the non-ground connections to the Arduino Nano *under* the board (since it is on headers) for a cleaner and more secure fit. 
 
-![nano-clock breadboard layout](images/nano-clock-core_actual.jpg)
-
 ### Programming the Arduino Nano
 
 Install the libraries described in "Dependencies" via the Arduino IDE, connect your board to your computer and choose the appropriate connection and board type ("Arduino Nano"), load the `nano-clock-core.ino` file, and click "Upload".  The sketch will be verified, compiled, and uploaded to your Arduino Nano.
