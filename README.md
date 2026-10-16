@@ -2,7 +2,7 @@
 
 [![Static Badge](https://img.shields.io/badge/Arduino-00878F?logo=arduino&logoColor=fff&label=Arduino%20Nano&link=https://store-usa.arduino.cc/products/arduino-nano)](https://store-usa.arduino.cc/products/arduino-nano/)&nbsp;[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-**phi2** is a collection of breadboard-buildable, high-flexible, clock generators for retro/homebrew computers, using a minimal number of inexpensive and readily available micro-controllers, SBCs and other parts.
+**phi2** is a collection of breadboard-buildable, highly-flexible, clock generators for retro/homebrew computers, using a minimal number of inexpensive and readily available micro-controllers, SBCs and other parts.
 
 ### Why "phi2"?
 
