@@ -31,11 +31,11 @@ It was built to provide a more flexible alternative to [Ben Eater's](https://eat
 
 Ensure you tie the GND (black) busses to the common GND for your computer board.  If you also connect the +5V busses to your computer's supply, it can power both itself and the **nano-clock**.  Then connect the CLOCK pin (9) on the **nano-clock** to the clock pin on your computer's CPU/MPU.  In the case of the Ben Eater WDC65C02 based computer, this would be **phi2** (pin 37).
 
-If you want RESET functionality as well, connec the RESET pin (8) on the **nano-clock** to the RESET pin on your computer's CPU/MPU.  RESET is a LOW trigger, so the line will be high when not resetting (no pull-up resistor should be required).
+If you want RESET functionality as well, connect the RESET pin (8) on the **nano-clock** to the RESET pin on your computer's CPU/MPU.  RESET is a LOW trigger, so the line will be high when not resetting (no pull-up resistor should be required).
 
 ### User Interface/Controls
 
-The interface for **nano-clock** comprises for buttons and a 4-digit, 14-segment, alphanumeric LED display.  Each button has two functions, driven by a short-press (<999ms) or a long-press (>=1s).  From left to right, the button functions are as follows:
+The interface for **nano-clock** comprises four buttons and a 4-digit, 14-segment, alphanumeric LED display.  Each button has two functions, driven by a short-press (<999ms) or a long-press (>=1s).  From left to right, the button functions are as follows:
 
 #### Button 1 - Step/Run Toggle | Step vs. Clock Mode
 
@@ -56,7 +56,7 @@ In both cases, if you reach the end of the available frequencies or bands, the n
 #### Button 3 - Reset | Auto Reset Toggle
 
 - A short press generates a RESET event (brings the RESET PIN to LOW for the duration specified; default is 2ms per the WDC65C02).
-- A long press toggles between RsON and RsOFF, which determine whether a RESET cycle is executed when the nano-clock first powers on.  This is used to allow nano-clock to control intial power on and clock management.  Note that this value only has an effect if it is SAVED.
+- A long press toggles between RsON and RsOFF, which determine whether a RESET cycle is executed when the nano-clock first powers on.  This is used to allow nano-clock to control initial power on and clock management.  Note that this value only has an effect if it is SAVED.
 
 #### Button 4 - Brightness | Save Settings
 
@@ -91,7 +91,7 @@ The KT16K33 backpack and LED module can be purchased as a [preassembled unit](ht
 
 ### Assembly
 
-The breadboard "schematic", above, shows all of the required connections.  In an actual build, you can run the non-ground connections to the Arduino Nano *under* the board (sice it is on headers) for a cleaner and more secure fit.  Similarly, the SDA and SCL connections to the LED display can be run under the backpack PCB.
+The breadboard "schematic", above, shows all of the required connections.  In an actual build, you can run the non-ground connections to the Arduino Nano *under* the board (since it is on headers) for a cleaner and more secure fit.  Similarly, the SDA and SCL connections to the LED display can be run under the backpack PCB.
 
 ![nano-clock breadboard layout](images/nano-clock_actual.jpg)
 
