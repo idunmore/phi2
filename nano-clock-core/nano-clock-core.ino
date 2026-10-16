@@ -203,8 +203,7 @@ void ClockState::Load() {
 void ClockState::Save() {
   sentinel = EEPROM_SENTINEL;
   // Store the data at the start of the EEPROM's memory
-  EEPROM.put(0, *this);
-  Serial.println("SAVED!");
+  EEPROM.put(0, *this);  
 }
 
 // Initialize Global Non-Clock State
