@@ -32,11 +32,21 @@ Advanced variations of this will incorporate different display technologies incl
 
 ### [nano-clock-core](nano-clock-core/)
 
-The simplest (just the core capabilities) project provides run-time selectable (and saveable) 1MHz, 2MHz, 4MHz and 8MHz clock frequencies, auto-starts when powered on, and offers a compile-time flag to enable/disable auto-reset behavior, and indicates operations using the built-in Arduino LED.  It requires only an Arduino Nano (or clone) and a single tactile button, which can be removed once an operating frequency has been selected and saved.
+This 2nd, and almost the simplest (just the core capabilities), "phi2" project provides run-time selectable (and saveable) 1MHz, 2MHz, 4MHz and 8MHz clock frequencies, auto-starts when powered on, and offers a compile-time flag to enable/disable auto-reset behavior, and indicates operations using the built-in Arduino LED.  It requires only an Arduino Nano (or clone) and a single tactile button, which can be removed once an operating frequency has been selected and saved.
 
 ![nano-clock-core breadboard layout](nano-clock-core/images/nano-clock-core_breadboard.png)
 
 **nano-clock-core** is not much bigger than a standard 4-pin crystal oscillator can.
+
+### [tiny-clock](tiny-clock/)
+
+The third clock build in the "phi2" series, and to date the simplest, departs from the typical "Arduino Board" based model and instead makes direct use of a "raw" microcontroller; in this case the [ATtiny85](https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf).
+
+![tiny-clock breadboard layout](tiny-clock/images/tiny-clock_breadboard.png)
+
+The simplest build is **just** the ATTiny85 IC itself, an 8-pin DIP part that is **smaller** than the 4-pin crystal oscillator can in the standard BE6502 setup.  Optional, basic components (1 or 2 tactile buttons, and/or 1 resistor and LED), expand the basic clock generator behavior with run-time selectable (and saveable) 1MHz, 2MHz, 4MHz and 8MHz clock frequencies, an LED to indicate clock state/speed, and a single-step clock mode.
+
+Settings can be saved by adding a button temporarily, and then can be removed.
 
 ## AI Usage
 
