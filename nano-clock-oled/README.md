@@ -99,7 +99,9 @@ I used an [Elegoo Arduino Nano v3.0](https://www.amazon.com/ELEGOO-Presoldered-C
 
 ### Assembly
 
-The breadboard "schematic", above, shows all of the required connections.  In an actual build, you can run the non-ground connections to the Arduino Nano *under* the board (since it is on headers) for a cleaner and more secure fit.  Similarly, the SDA and SCL connections to the LED display can be run under the backpack PCB.
+**NOTE:** The depicted "schematic" assumes the power input is via the USB connection on the Arduino Nano.  GND is common.  +5V is on the bottom power rail, drawn from the Nano's 5V pin.  +3.3V is on the top power rail, drawn from the Nano's 3.3V pin.  If powering via an external supply, or from another board, you will need to ensure either a) you have a 3.3V feed from that board for the top rails or b) you're powering the Nano via it's VIN line or c) you use an OLED display with built-in level shifting circuitry or 5V tolerance (and then just use a common +5V feed on both rails).
+
+The breadboard "schematic", above, shows all of the required connections.  In an actual build, you can run the non-ground connections to the Arduino Nano *under* the board (since it is on headers) for a cleaner and more secure fit.  Similarly, the SDA and SCL connections to the LED display can be run under the OLED's PCB.
 
 ![nano-clock-oled breadboard layout](images/nano-clock-oled_actual.jpg)
 
