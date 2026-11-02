@@ -18,12 +18,14 @@
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 64
 
-// Clock Waveform position and height
+// Output Strings, Sizes and Positions
 #define WAVE_HEIGHT 12
 #define WAVE_VPOS   63
 
 #define TITLE "Nano Clock OLED"
 #define TITLE_VPOS  15
+
+#define FREQ_VPOS   45
 
 // Button Pins
 #define STEP_BUTTON  2
@@ -207,36 +209,36 @@ void wait(uint32_t milliseconds) {
 
 // Core Methods
 
-void displayStatusLine() {
-  String str = TITLE;
-  u8g2.setFont(u8g2_font_tenthinguys_tr);
-  uint8_t x_pos = (SCREEN_WIDTH - u8g2.getStrWidth(str.c_str())) / 2;
-  u8g2.drawStr(x_pos, TITLE_VPOS, str.c_str());
+void drawStatusLine() {  
+  u8g2.setFont(u8g2_font_tenthinguys_tr);  
+  uint8_t x_pos = (SCREEN_WIDTH - u8g2.getStrWidth(TITLE)) / 2;
+  u8g2.drawStr(x_pos, TITLE_VPOS, TITLE);
+}
+
+void drawFrequency(Band *band, Frequency* frequency) {
+  String frequency_text = frequency->display_text + band->display_text;
+  u8g2.setFont(u8g2_font_calblk36_tr);
+  uint8_t text_width = u8g2.getStrWidth(frequency_text.c_str());    
+  u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS, frequency_text.c_str());
 }
 
 // Write a string to the OLED display
 void displayOLED(String str) {
   u8g2.firstPage();
-  do {   
-    displayStatusLine();  
+  do {     
+    drawStatusLine();   
     u8g2.setFont(u8g2_font_calblk36_tr);
     uint8_t text_width = u8g2.getStrWidth(str.c_str());    
     u8g2.drawStr((SCREEN_WIDTH - text_width)/2,45,str.c_str());
-    drawWaveForm(16, waveform_scroll);    
+    drawWaveForm(16, waveform_scroll);
+     
   } while ( u8g2.nextPage() );  
 }
 
 // Sets the new clock frequency and updates the display
 void setFrequency(Band* band, Frequency* frequency) {
   // Disable the Timer's OUTPUT
-  TCCR1A = OC1A_OFF;
-
-  // Create the frequency display text
-  String frequency_text = frequency->display_text + band->display_text;
-
-  // Display the Frequency
-  displayStatusLine();
-  displayOLED(frequency_text);
+  TCCR1A = OC1A_OFF;  
 
   // Set the Prescaler and Counter Mode
   TCCR1B = frequency->tccr1b_flags;
@@ -336,10 +338,8 @@ void onPressedStep() {
     } else {
       clock_state.state = States::STOP;
       TCCR1A = OC1A_OFF;
-      displayOLED(STOP_LABEL);
-      //disp.blinkRate(0);
-      wait(MSG_DURATION);
-      displayOLED(clock_state.currentFrequency()->display_text);
+      displayOLED(STOP_LABEL);     
+      wait(MSG_DURATION);      
     }
   } else {
     // STEP
@@ -357,8 +357,7 @@ void onPressedStep() {
 }
 
 // Switch between Single STEP and CLOCK modes
-void onLongPressStep() {
-  //disp.blinkRate(0);
+void onLongPressStep() {  
   if (clock_state.mode == Modes::SINGLE) {
     clock_state.mode = Modes::CLOCK;
     displayOLED(CLOCK_LABEL);
@@ -369,6 +368,7 @@ void onLongPressStep() {
     displayOLED(STEP_LABEL);
     clock_state.state = States::STOP;
     TCCR1A = OC1A_OFF;
+    wait(MSG_DURATION);
   }  
 }
 
@@ -480,7 +480,12 @@ void loop() {
   // Display enabled
   u8g2.firstPage();
   do {
-    displayStatusLine();
+    drawStatusLine();
+
+    if (clock_state.mode == Modes::CLOCK && clock_state.state == States::RUN)
+    {
+      drawFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+    }
 
     drawWaveForm(16, waveform_scroll);  
   } while ( u8g2.nextPage() );  
