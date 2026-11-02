@@ -5,7 +5,9 @@
 
 **nano-clock-oled** is the fourth project in the "phi2" series.
 
-It was built to provide a more flexible alternative to [Ben Eater's](https://eater.net) [6502 clock-module](https://eater.net/6502), both for single-step and slow-cycle operations as well as the ability to replace the final build's 1MHz crystal oscillator while offering faster clock speeds.
+It is based on my "[nano-clock](https://github.com/idunmore/phi2/tree/main/nano-clock)" project, but instead of a 4-digit, 14-segment alphanumeric LED display it uses an small OLED panel on an I2C interface for status and operational messages.  The initial version has the same functionality as the original, excepting a display on/off toggle in place of brightness control. Future iterations may add additional features or change display aesthetics, depending on available microcontroller RAM.
+
+It provides a more flexible alternative to [Ben Eater's](https://eater.net) [6502 clock-module](https://eater.net/6502), both for single-step and slow-cycle operations as well as the ability to replace the final build's 1MHz crystal oscillator while offering faster clock speeds.
 
 ![nano-clock-oled breadboard layout](images/nano-clock-oled_breadboard.png)
 
@@ -95,6 +97,8 @@ A minimal number of components are required to assemble **nano-clock**:
 - 830 Point Solderless Breadboard
 
 I used an [Elegoo Arduino Nano v3.0](https://www.amazon.com/ELEGOO-Presoldered-Compatible-Arduino-Microcontroller/dp/B0F6Y7GS4Q/), since they are cheap and have a USB-C connector (they have options for other connectors, so verify which version you order).
+
+The actual OLED display used, other than requiring an I2C interface and a 128x64 pixel, pixel-addressable, display, is up to the user.  Some have [integrated buttons](https://www.amazon.com/dp/B0GWQYFTQD) (that read as separate physical momentary switches), and various size options are available.
 
 
 ### Assembly
