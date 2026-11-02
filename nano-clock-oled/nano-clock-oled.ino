@@ -56,15 +56,31 @@
 #define I2C_SDA 4   // I2C SDA PIN (Nano Hardware I2C)
 #define I2C_SCL 5   // I2C SCL PIN (Nano Hardware I2C)
 
-// Status Labels
-#define STEP_LABEL        "STEP"
-#define RUN_LABEL         "RUN "
-#define STOP_LABEL        "STOP"
-#define CLOCK_LABEL       "CLOCK"
-#define RESET_LABEL       "RESET"
-#define SAVE_LABEL        "SAVE"
-#define RESET_ON_LABEL    "RstON"  // Auto Reset at Power-Up ON
-#define RESET_OFF_LABEL   "RstOFF" // Auto Reset at Power-Up OFF
+// Status Labels - Stored in flash (PROGMEM) to save RAM.  Each *_LABEL is an
+// index into status_labels[], and the order of the #defines MUST match the
+// order of the strings in that array.  Display them with displayLabel().
+#define STEP_LABEL        0
+#define RUN_LABEL         1
+#define STOP_LABEL        2
+#define CLOCK_LABEL       3
+#define RESET_LABEL       4
+#define SAVE_LABEL        5
+#define RESET_ON_LABEL    6  // Auto Reset at Power-Up ON
+#define RESET_OFF_LABEL   7  // Auto Reset at Power-Up OFF
+
+// Maximum length of a status label (excluding NUL terminator)
+#define LABEL_MAX_LEN 6
+
+const char status_labels[][LABEL_MAX_LEN + 1] PROGMEM = {
+  "STEP",   // STEP_LABEL
+  "RUN ",   // RUN_LABEL
+  "STOP",   // STOP_LABEL
+  "CLOCK",  // CLOCK_LABEL
+  "RESET",  // RESET_LABEL
+  "SAVE",   // SAVE_LABEL
+  "RstON",  // RESET_ON_LABEL
+  "RstOFF", // RESET_OFF_LABEL
+};
 
 // Create the display instance
 U8G2_SSD1306_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, I2C_SCL, I2C_SDA);
@@ -93,29 +109,35 @@ U8G2_SSD1306_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, I2C_SCL, I2C_SDA);
 // Adding a new Band or Frequency requires adding a new item in the array, with
 // appropriate values, and adjusting the index and next_* accordingly.
 
+// All Frequency and Band tables live in flash (PROGMEM) to save RAM, so their
+// fields MUST be read with the pgm_read_*() / *_P() functions, never directly.
+
+// Maximum length of display text (excluding NUL terminator) for table entries
+#define TABLE_TEXT_LEN 3
+
 // Frequency - Represents ONE Clock Frequency, as a node in a linked list.  The
 // last entry in the list MUST point back to the first!
 struct Frequency {  
   uint8_t index;             // Position in array, for Save/Load lookup
-  String display_text;       // Text value to display
+  char display_text[TABLE_TEXT_LEN + 1]; // Text value to display
   uint8_t tccr1b_flags;      // ATMega328 TCCR1B Timer Control Register - Mode & Prescale Values
   uint16_t timer_count;      // ATMega328 CTC Mode Timer Match value (OCR1A)
-  Frequency* next_frequency; // Pointer to next Frequency entry
+  const Frequency* next_frequency; // Pointer to next Frequency entry (PROGMEM)
 };
 
 // Band (Frequency) - Reprents ONE Frequency Band, as a node in a linked list.
 // The last entry in the list MUST point back to the first!
 struct Band {
   uint8_t index;            // Position in array, for Save/Load lookup
-  String display_text;      // Text value to display
-  Frequency *frequency_band; // Pointer to the Frequency Array for this Band
-  Band *next_band;           // Pointer to the next Band entry
+  char display_text[TABLE_TEXT_LEN + 1]; // Text value to display
+  const Frequency *frequency_band; // Pointer to the Frequency Array for this Band (PROGMEM)
+  const Band *next_band;           // Pointer to the next Band entry (PROGMEM)
 };
 
 // Adding a new Frequency just requires choosing the appropriate prescaler
 // (tccr1b_flags) and timer_count values, adding it to the array, and adjusting
 // the indexes and next_* pointers accordingly.
-Frequency hz_frequencies[] = {
+const Frequency hz_frequencies[] PROGMEM = {
   {0, "1",    CTS_PRESCALER_256, 0x79B8, &hz_frequencies[1]},
   {1, "2",    CTC_PRESCALER_64,  0xF370, &hz_frequencies[2]},
   {2, "5",    CTC_PRESCALER_64,  0x615D, &hz_frequencies[3]},
@@ -127,7 +149,7 @@ Frequency hz_frequencies[] = {
   {8, "500",  CTC_PRESCALER_OFF, 0x3E51, &hz_frequencies[0]},
 };
 
-Frequency khz_frequencies[] = {
+const Frequency khz_frequencies[] PROGMEM = {
   {0, "1",    CTC_PRESCALER_OFF, 0x1F28, &khz_frequencies[1]},
   {1, "2",    CTC_PRESCALER_OFF, 0x0FA0, &khz_frequencies[2]},
   {2, "5",    CTC_PRESCALER_OFF, 0x063A, &khz_frequencies[3]},
@@ -139,7 +161,7 @@ Frequency khz_frequencies[] = {
   {8, "500",  CTC_PRESCALER_OFF, 0x000F, &khz_frequencies[0]},
 };
 
-Frequency mhz_frequencies[] = {
+const Frequency mhz_frequencies[] PROGMEM = {
   {0, "1", CTC_PRESCALER_OFF, 0x0007, &mhz_frequencies[1]},
   {1, "2", CTC_PRESCALER_OFF, 0x0003, &mhz_frequencies[2]},
   {2, "4", CTC_PRESCALER_OFF, 0x0001, &mhz_frequencies[3]},
@@ -149,7 +171,7 @@ Frequency mhz_frequencies[] = {
 // Adding a new Band just requires creating a supporting frequencies list/array,
 // and adding the new band to the bands[] array, adjusting the indexes and
 // next_* pointers accordingly.
-Band bands[] = {
+const Band bands[] PROGMEM = {
   {0, "Hz", hz_frequencies,  &bands[1]},
   {1, "kHz", khz_frequencies, &bands[2]},
   {2, "MHz", mhz_frequencies, &bands[0]}
@@ -184,8 +206,11 @@ struct ClockState {
   uint8_t frequency;    // Index into the current Band's frequency array
   bool display_enable;  // Display is enabled or disabled
   
-  Band* currentBand() { return &bands[band]; }
-  Frequency* currentFrequency() { return &bands[band].frequency_band[frequency]; }
+  // Both return pointers into PROGMEM; read fields with pgm_read_*() / *_P()
+  const Band* currentBand() { return &bands[band]; }
+  const Frequency* currentFrequency() {
+    return (const Frequency*)pgm_read_ptr(&bands[band].frequency_band) + frequency;
+  }
 
   void Load();
   void Save();
@@ -215,39 +240,48 @@ void drawStatusLine() {
   u8g2.drawStr(x_pos, TITLE_VPOS, TITLE);
 }
 
-void drawFrequency(Band *band, Frequency* frequency) {
-  String frequency_text = frequency->display_text + band->display_text;
+void drawFrequency(const Band *band, const Frequency* frequency) {
+  // Room for frequency text + band text + NUL terminator
+  char frequency_text[TABLE_TEXT_LEN * 2 + 1];
+  strcpy_P(frequency_text, frequency->display_text);
+  strcat_P(frequency_text, band->display_text);
   u8g2.setFont(u8g2_font_calblk36_tr);
-  uint8_t text_width = u8g2.getStrWidth(frequency_text.c_str());    
-  u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS, frequency_text.c_str());
+  uint8_t text_width = u8g2.getStrWidth(frequency_text);
+  u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS, frequency_text);
 }
 
 // Write a string to the OLED display
-void displayOLED(String str) {
+void displayOLED(const char* str) {
   u8g2.firstPage();
   do {     
     drawStatusLine();   
     u8g2.setFont(u8g2_font_calblk36_tr);
-    uint8_t text_width = u8g2.getStrWidth(str.c_str());    
-    u8g2.drawStr((SCREEN_WIDTH - text_width)/2,45,str.c_str());
+    uint8_t text_width = u8g2.getStrWidth(str);    
+    u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS ,str);
     drawWaveForm(16, waveform_scroll);
      
   } while ( u8g2.nextPage() );  
 }
 
-// Sets the new clock frequency and updates the display
-void setFrequency(Band* band, Frequency* frequency) {
+// Write a status label (one of the *_LABEL values) to the OLED display
+void displayLabel(uint8_t label) {
+  char label_text[LABEL_MAX_LEN + 1];
+  strcpy_P(label_text, status_labels[label]);
+  displayOLED(label_text);
+}
+
+// Sets the new clock frequency
+void setFrequency(const Frequency* frequency) {
   // Disable the Timer's OUTPUT
   TCCR1A = OC1A_OFF;  
 
   // Set the Prescaler and Counter Mode
-  TCCR1B = frequency->tccr1b_flags;
-  OCR1A  = frequency->timer_count;
+  TCCR1B = pgm_read_byte(&frequency->tccr1b_flags);
+  OCR1A  = pgm_read_word(&frequency->timer_count);
 
   // Enable the Timer's OUTPUT (Toggle Mode)
   if( clock_state.state == States::RUN) {
-    TCCR1A = OC1A_TOGGLE;
-    //disp.blinkRate(BLINK_RATE);
+    TCCR1A = OC1A_TOGGLE;    
   }
 }
 
@@ -292,9 +326,9 @@ void updateState(uint16_t milliseconds) {
   wait(milliseconds);
   // Put the display back in the proper state
   if (clock_state.mode == Modes::CLOCK) {
-    setFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+    setFrequency(clock_state.currentFrequency());
   } else {
-    displayOLED(STEP_LABEL);
+    displayLabel(STEP_LABEL);
   }
 }
 
@@ -332,18 +366,18 @@ void onPressedStep() {
     // Toggle RUN/STOP state
     if (clock_state.state == States::STOP) {
       clock_state.state = States::RUN;
-      displayOLED(RUN_LABEL);
+      displayLabel(RUN_LABEL);
       wait(MSG_DURATION);
-      setFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+      setFrequency(clock_state.currentFrequency());
     } else {
       clock_state.state = States::STOP;
       TCCR1A = OC1A_OFF;
-      displayOLED(STOP_LABEL);     
+      displayLabel(STOP_LABEL);     
       wait(MSG_DURATION);      
     }
   } else {
     // STEP
-    displayOLED(STEP_LABEL);
+    displayLabel(STEP_LABEL);
     // Emit a LOW pulse
     digitalWrite(CLOCK_PIN, LOW);
     // This is deliberately blocking!
@@ -352,7 +386,7 @@ void onPressedStep() {
     // Keep the "...." displayed long enough to be visible
     // without meaningfully slowing down STEP actions
     wait(STEP_MSG_DURATION);
-    displayOLED(STEP_LABEL);
+    displayLabel(STEP_LABEL);
   }
 }
 
@@ -360,12 +394,12 @@ void onPressedStep() {
 void onLongPressStep() {  
   if (clock_state.mode == Modes::SINGLE) {
     clock_state.mode = Modes::CLOCK;
-    displayOLED(CLOCK_LABEL);
+    displayLabel(CLOCK_LABEL);
     updateState(MSG_DURATION);
   } else {
     clock_state.mode = Modes::SINGLE;
     digitalWrite(CLOCK_PIN, HIGH);
-    displayOLED(STEP_LABEL);
+    displayLabel(STEP_LABEL);
     clock_state.state = States::STOP;
     TCCR1A = OC1A_OFF;
     wait(MSG_DURATION);
@@ -374,24 +408,29 @@ void onLongPressStep() {
 
 // Next Frequency in current band
 void onPressedFreq() {
-  clock_state.frequency = clock_state.currentFrequency()->next_frequency->index;
-  setFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+  const Frequency* next =
+    (const Frequency*)pgm_read_ptr(&clock_state.currentFrequency()->next_frequency);
+  clock_state.frequency = pgm_read_byte(&next->index);
+  setFrequency(clock_state.currentFrequency());
 }
 
 // Next Frequency Band
 void onLongPressFreq() {
   //disp.blinkRate(0);
-  clock_state.band = clock_state.currentBand()->next_band->index;
+  const Band* next = (const Band*)pgm_read_ptr(&clock_state.currentBand()->next_band);
+  clock_state.band = pgm_read_byte(&next->index);
   clock_state.frequency = 0;
-  displayOLED(clock_state.currentBand()->display_text);
+  char band_text[TABLE_TEXT_LEN + 1];
+  strcpy_P(band_text, next->display_text);
+  displayOLED(band_text);
   wait(MSG_DURATION);
-  setFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+  setFrequency(clock_state.currentFrequency());
 }
 
 // Cycle the RESET pin LOW, then HIGH
 void onPressedReset() {
   // Show operation
-  displayOLED(RESET_LABEL);
+  displayLabel(RESET_LABEL);
   // Disable blinking if running
   if (clock_state.state == States::RUN) ;//disp.blinkRate(0);
   // Perform the RESET
@@ -404,10 +443,10 @@ void onLongPressReset() {
   //disp.blinkRate(0);
   if (clock_state.reset == Reset::ENABLE) {
     clock_state.reset = Reset::DISABLE;
-    displayOLED(RESET_OFF_LABEL);
+    displayLabel(RESET_OFF_LABEL);
   } else {
     clock_state.reset = Reset::ENABLE;
-    displayOLED(RESET_ON_LABEL);
+    displayLabel(RESET_ON_LABEL);
   }
   updateState(MSG_DURATION);  
 }
@@ -416,9 +455,6 @@ void onLongPressReset() {
 void onPressedSave() {
   if (clock_state.display_enable) u8g2.clearDisplay();
   clock_state.display_enable = !clock_state.display_enable;  
-  //sprintf(display_buffer, BRIGHTNESS_FORMAT, clock_state.brightness);
-  //displayLED((String)display_buffer);
-  //updateState(MSG_DURATION / 2);
 }
 
 // Save State to EEPROM
@@ -426,7 +462,7 @@ void onLongPressSave() {
   // Disable blinking if running
   if (clock_state.state == States::RUN) ;//disp.blinkRate(0);
   // Display operation
-  displayOLED(SAVE_LABEL);
+  displayLabel(SAVE_LABEL);
   clock_state.Save();
   updateState(MSG_DURATION);
 }
@@ -456,13 +492,13 @@ void setup() {
   saveButton.begin();
   saveButton.onPressed(onPressedSave);
   saveButton.onPressedFor(LONG_PRESS_DURATION, onLongPressSave);
-  setFrequency(clock_state.currentBand(), clock_state.currentFrequency());
+  setFrequency(clock_state.currentFrequency());
 
   // Load and Apply saved state
   clock_state.Load();
 }
 
-// Main loop - Everything is event driven basedon button presses
+// Main loop - Everything is event driven based on button presses
 // while the CLOCK timer output runs in the background automatically
 void loop() {
   // Read Buttons
