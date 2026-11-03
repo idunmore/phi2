@@ -22,9 +22,6 @@
 #define WAVE_HEIGHT 12
 #define WAVE_VPOS   63
 
-#define TITLE "Nano Clock OLED"
-#define TITLE_VPOS  15
-
 #define FREQ_VPOS   45
 
 // Button Pins
@@ -234,12 +231,29 @@ void wait(uint32_t milliseconds) {
 
 // Core Methods
 
-void drawStatusLine() {  
-  u8g2.setFont(u8g2_font_tenthinguys_tr);  
-  uint8_t x_pos = (SCREEN_WIDTH - u8g2.getStrWidth(TITLE)) / 2;
-  u8g2.drawStr(x_pos, TITLE_VPOS, TITLE);
+// Code Points for Status Glyphs
+#define CLOCK_GLYPH 0x007b
+#define STOP_GLYPH  0x00d9
+#define RUN_GLYPH   0x00d3
+#define STEP_GLYPH  0x00ee
+#define RESET_GLYPH 0x00f3
+
+// Draws the "status" line based on current state
+void drawStatusLine() {
+  // open_iconic_all_2x font (https://github.com/olikraus/u8g2/wiki/fntgrpiconic)
+  u8g2.setFont(u8g2_font_open_iconic_all_2x_t);
+
+  // Clock Mode and State
+  uint16_t mode_glyph = clock_state.mode == Modes::CLOCK ? CLOCK_GLYPH : STEP_GLYPH;
+  u8g2.drawGlyph(0, 16, mode_glyph);
+  uint16_t state_glyph = clock_state.state == States::RUN ? RUN_GLYPH : STOP_GLYPH;  
+  if (clock_state.mode == Modes::CLOCK) u8g2.drawGlyph(16, 16, state_glyph);
+
+  // Reset Status
+  if (clock_state.reset == Reset::ENABLE) u8g2.drawGlyph(48, 16, RESET_GLYPH);  
 }
 
+// Draws the band/frequency text based on current state
 void drawFrequency(const Band *band, const Frequency* frequency) {
   // Room for frequency text + band text + NUL terminator
   char frequency_text[TABLE_TEXT_LEN * 2 + 1];
@@ -250,6 +264,15 @@ void drawFrequency(const Band *band, const Frequency* frequency) {
   u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS, frequency_text);
 }
 
+// Computes the wave form width based on current state
+uint8_t getWaveFormWidth() {
+  // First get a divider for the band ...
+  uint8_t divider = clock_state.band * 2;
+  // ... and make sure it is at least 1
+  if (divider < 1) divider = 1;
+  uint8_t width = 32 - (clock_state.frequency * 2);
+  return width / divider;
+}
 // Write a string to the OLED display
 void displayOLED(const char* str) {
   u8g2.firstPage();
@@ -258,7 +281,7 @@ void displayOLED(const char* str) {
     u8g2.setFont(u8g2_font_calblk36_tr);
     uint8_t text_width = u8g2.getStrWidth(str);    
     u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS ,str);
-    drawWaveForm(16, waveform_scroll);
+    drawWaveForm(getWaveFormWidth(), waveform_scroll);
      
   } while ( u8g2.nextPage() );  
 }
@@ -513,17 +536,18 @@ void loop() {
     return;    
   }
   
-  // Display enabled
+  // Display enabled, update it with the current state/settings
   u8g2.firstPage();
   do {
     drawStatusLine();
 
-    if (clock_state.mode == Modes::CLOCK && clock_state.state == States::RUN)
-    {
+    if (clock_state.mode == Modes::CLOCK ) {
       drawFrequency(clock_state.currentBand(), clock_state.currentFrequency());
     }
 
-    drawWaveForm(16, waveform_scroll);  
-  } while ( u8g2.nextPage() );  
+    drawWaveForm(getWaveFormWidth(), waveform_scroll);  
+  } while ( u8g2.nextPage() );
+
+  // Animates the scrolling wave form if the clock is running  
   if (clock_state.state == States::RUN ) waveform_scroll+=1;  
 }
