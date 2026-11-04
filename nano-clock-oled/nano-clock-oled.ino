@@ -247,13 +247,16 @@ void drawStatusLine() {
   u8g2.setFont(u8g2_font_open_iconic_all_2x_t);
 
   // Clock Mode and State
-  uint16_t mode_glyph = clock_state.mode == Modes::CLOCK ? CLOCK_GLYPH : STEP_GLYPH;
-  u8g2.drawGlyph(0, 16, mode_glyph);
-  uint16_t state_glyph = clock_state.state == States::RUN ? RUN_GLYPH : STOP_GLYPH;  
-  if (clock_state.mode == Modes::CLOCK) u8g2.drawGlyph(16, 16, state_glyph);
+  if (clock_state.mode == Modes::CLOCK) {
+    u8g2.drawGlyph(0, 16, CLOCK_GLYPH);
+    uint16_t state_glyph = clock_state.state == States::RUN ? RUN_GLYPH : STOP_GLYPH;  
+    if (clock_state.mode == Modes::CLOCK) u8g2.drawGlyph(16, 16, state_glyph);
+  } else {
+    u8g2.drawGlyph(30, 16, STEP_GLYPH);
+  }
 
   // Reset Status
-  if (clock_state.reset == Reset::ENABLE) u8g2.drawGlyph(48, 16, RESET_GLYPH);  
+  if (clock_state.reset == Reset::ENABLE) u8g2.drawGlyph(48, 16, RESET_GLYPH);   
 }
 
 // Draws the band/frequency text based on current state
@@ -381,13 +384,11 @@ void doReset() {
 
 // Update the display state, resetting the clock and enabling
 // RUN mode as necessary
-void updateState(uint16_t milliseconds) {
+void updateState(uint16_t milliseconds) {  
   wait(milliseconds);
   // Put the display back in the proper state
   if (clock_state.mode == Modes::CLOCK) {
     setFrequency(clock_state.currentFrequency());
-  } else {
-    displayLabel(STEP_LABEL);
   }
 }
 
