@@ -24,6 +24,11 @@
 
 #define FREQ_VPOS   45
 
+#define STEP_VPOS   32
+#define STEP_HPOS   32
+#define STEP_RADIUS 16
+#define STEP_LENGTH 48
+
 // Button Pins
 #define STEP_BUTTON  2
 #define FREQ_BUTTON  3
@@ -37,18 +42,16 @@
 #define RESET_PIN 8
 #define CLOCK_PIN 9
 
-// State Transition Durations
-#define RESET_DURATION    2  // Time to hold RESB low (in milliseconds)
-#define STEP_PULSE_LENGTH 2  // Time to hold Phi2 low (in milliseconds)
-#define STEP_MSG_DURATION 50 // Time to display "...." (in milliseconds)
+// State Transition/Message Durations
+#define RESET_DURATION    2     // Time to hold RESB low (in milliseconds)
+#define STEP_PULSE_LENGTH 2     // Time to hold Phi2 low (in milliseconds)
+#define STEP_MSG_DURATION 100   // Time to display "...." (in milliseconds)
+#define MSG_DURATION      1000  // Time to show status messsage (milliseconds)
 
 // Display Elements
 
 // Default I2C Address for SSD1306 Interface
-#define DISPLAY_ADDRESS     0x3C
-#define BLINK_RATE          1
-#define MSG_DURATION        1000  // Time to show status messsage (milliseconds)
-#define NUM_CHARS           4     // Actual number of LED digits
+#define DISPLAY_ADDRESS 0x3C
 
 #define I2C_SDA 4   // I2C SDA PIN (Nano Hardware I2C)
 #define I2C_SCL 5   // I2C SCL PIN (Nano Hardware I2C)
@@ -69,12 +72,12 @@
 #define LABEL_MAX_LEN 6
 
 const char status_labels[][LABEL_MAX_LEN + 1] PROGMEM = {
-  "STEP",   // STEP_LABEL
-  "RUN ",   // RUN_LABEL
-  "STOP",   // STOP_LABEL
-  "CLOCK",  // CLOCK_LABEL
-  "RESET",  // RESET_LABEL
-  "SAVE",   // SAVE_LABEL
+  "Step",   // STEP_LABEL
+  "Run",    // RUN_LABEL
+  "Stop",   // STOP_LABEL
+  "Clock",  // CLOCK_LABEL
+  "Reset",  // RESET_LABEL
+  "Save",   // SAVE_LABEL
   "RstON",  // RESET_ON_LABEL
   "RstOFF", // RESET_OFF_LABEL
 };
@@ -261,7 +264,7 @@ void drawFrequency(const Band *band, const Frequency* frequency) {
   strcat_P(frequency_text, band->display_text);
   u8g2.setFont(u8g2_font_calblk36_tr);
   uint8_t text_width = u8g2.getStrWidth(frequency_text);
-  u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS, frequency_text);
+  u8g2.drawStr((SCREEN_WIDTH - text_width) / 2, FREQ_VPOS, frequency_text);
 }
 
 // Computes the wave form width based on current state
@@ -273,16 +276,49 @@ uint8_t getWaveFormWidth() {
   uint8_t width = 32 - (clock_state.frequency * 2);
   return width / divider;
 }
-// Write a string to the OLED display
-void displayOLED(const char* str) {
+
+// Draws a lit (on == true) or unlit "STEP" indicator with waveform "pulse"
+void drawStepIndicator(bool on) {
+  u8g2.firstPage();
+  do {
+    drawStatusLine();
+    uint8_t center_hpos = STEP_HPOS + STEP_RADIUS + 12;
+    uint8_t segment_len = STEP_LENGTH / 4;
+    if (on) {
+      // Draw the "lit" indicator ...
+      u8g2.drawDisc(STEP_HPOS, STEP_VPOS, STEP_RADIUS);
+      // .. then a down/up pulse (Phi2 on 6502 is active low)      
+      u8g2.drawHLine(center_hpos, STEP_VPOS, segment_len);      
+      u8g2.drawVLine(center_hpos + segment_len, STEP_VPOS, STEP_RADIUS );      
+      u8g2.drawHLine(center_hpos + segment_len, STEP_VPOS + STEP_RADIUS, segment_len + 1);      
+      u8g2.drawVLine(center_hpos + segment_len * 2, STEP_VPOS - STEP_RADIUS, STEP_RADIUS * 2 );      
+      u8g2.drawHLine(center_hpos + segment_len * 2, STEP_VPOS - STEP_RADIUS, segment_len);     
+      u8g2.drawVLine(center_hpos + segment_len * 3, STEP_VPOS - STEP_RADIUS, STEP_RADIUS);      
+      u8g2.drawHLine(center_hpos + segment_len * 3, STEP_VPOS, segment_len);      
+    } else {
+      // Draw an "unlit" indicator ...
+      u8g2.drawCircle(STEP_HPOS, STEP_VPOS, STEP_RADIUS);
+      // .. then a flat-line
+      u8g2.drawHLine(center_hpos, STEP_VPOS, STEP_LENGTH);
+    }
+  } while (u8g2.nextPage());
+}
+
+// Write a string to the OLED display, while preserving other
+// elements that should also be drawn (status line, waveform)
+void displayOLED(const char* str, bool step_on = false) {
   u8g2.firstPage();
   do {     
-    drawStatusLine();   
-    u8g2.setFont(u8g2_font_calblk36_tr);
-    uint8_t text_width = u8g2.getStrWidth(str);    
-    u8g2.drawStr((SCREEN_WIDTH - text_width)/2, FREQ_VPOS ,str);
-    drawWaveForm(getWaveFormWidth(), waveform_scroll);
-     
+    drawStatusLine(); 
+    if (!step_on) {  
+      u8g2.setFont(u8g2_font_calblk36_tr);
+      uint8_t text_width = u8g2.getStrWidth(str);    
+      u8g2.drawStr((SCREEN_WIDTH - text_width) / 2, FREQ_VPOS ,str);
+    } else {
+      drawStepIndicator(step_on);
+    }
+
+    drawWaveForm(getWaveFormWidth(), waveform_scroll);     
   } while ( u8g2.nextPage() );  
 }
 
@@ -312,7 +348,8 @@ void setFrequency(const Frequency* frequency) {
 // "cycle" is the width (in pixels) of each peak/trough; "offset" is how many
 // pixels into the waveform the drawing begins (i.e. its phase).
 void drawWaveForm(uint8_t cycle, uint8_t offset) {
-  if (cycle == 0) return;
+  // Don't draw the wave form if we're not in clock mode or cycle length is 0
+  if (cycle == 0 || clock_state.mode == Modes::SINGLE ) return;
 
   // One full period is a trough followed by a peak, so only the offset
   // modulo the period matters.
@@ -325,7 +362,6 @@ void drawWaveForm(uint8_t cycle, uint8_t offset) {
   for (int16_t wave_x = -(int16_t)(phase % cycle); wave_x < SCREEN_WIDTH; wave_x += cycle) {
     int16_t start = (wave_x < 0) ? 0 : wave_x;
     int16_t edge  = wave_x + cycle;   // X of the rising/falling edge ending this segment
-
     u8g2.drawHLine(start, peak ? WAVE_VPOS - WAVE_HEIGHT : WAVE_VPOS, edge - start + 1);
     if (edge < SCREEN_WIDTH) {
       u8g2.drawVLine(edge, WAVE_VPOS - WAVE_HEIGHT, WAVE_HEIGHT);
@@ -399,17 +435,16 @@ void onPressedStep() {
       wait(MSG_DURATION);      
     }
   } else {
-    // STEP
-    displayLabel(STEP_LABEL);
+    // STEP    
+    drawStepIndicator(true);
     // Emit a LOW pulse
     digitalWrite(CLOCK_PIN, LOW);
     // This is deliberately blocking!
     delay(STEP_PULSE_LENGTH);
     digitalWrite(CLOCK_PIN, HIGH);
-    // Keep the "...." displayed long enough to be visible
+    // Keep the indicator "lit" long enough to be visible
     // without meaningfully slowing down STEP actions
-    wait(STEP_MSG_DURATION);
-    displayLabel(STEP_LABEL);
+    wait(STEP_MSG_DURATION);    
   }
 }
 
@@ -539,13 +574,19 @@ void loop() {
   // Display enabled, update it with the current state/settings
   u8g2.firstPage();
   do {
+    // Draw the status line
     drawStatusLine();
-
+    // Show the frequency when in clock mode
     if (clock_state.mode == Modes::CLOCK ) {
       drawFrequency(clock_state.currentBand(), clock_state.currentFrequency());
     }
-
-    drawWaveForm(getWaveFormWidth(), waveform_scroll);  
+    else {
+      // Show the step indicator since we're in single-step moed
+      drawStepIndicator(false);
+    }
+    // Draw the wave form (when needed)
+    drawWaveForm(getWaveFormWidth(), waveform_scroll);    
+      
   } while ( u8g2.nextPage() );
 
   // Animates the scrolling wave form if the clock is running  

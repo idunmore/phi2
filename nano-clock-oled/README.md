@@ -33,9 +33,11 @@ This is a currently **work-in-progress**.
 
 **nano-clock-oled** uses the core "clock" and "features" implementation from my original [nano-clock](https://github.com/idunmore/phi2/tree/main/nano-clock) project.  These are _here and functional_, though not thoroughly tested yet.
 
-Preliminary setup and utilization of the OLED display, including clock-running "waveform" animation, and various function/status messages have been convertd to use the OLED display instead of the 14-segment LED.
+Switching from the 4-digit, 14-segment, alphanumeric LED display to the graphics-capable 128x64 pixel OLED display is complete, excepting that the top (yellow) status line is only partially implemented (some status icons still to implement).
 
-Now, the display routines need to be refactored and adjusted into a single state-aware display "controller", to work with the minimal-memory buffer mode of the u8g2 display/rendering library (a single 1-bit buffer for the 128x64 pixel display would require 1KB, which is half the Nano's available RAM, so I am using the paged-mode in u8g2.  The top, yellow, status-line/flag display also needs to be implemented.
+The animated "frequency waveform" is working, but needs some fine-tuning (it is not meant to be a relative display not an absolute one).
+
+Note that the Arduino Nano has only 2KB of RAM, **half** of which would be required just to buffer the OLED display (and then doesn't leave enough for the remainder of the program), so **u8g2**'s "paged mode" is used.  Even in paged mode, it was necessary to move all tables and labels/strings into PROGMEM.  The display "~775" bytes of available RAM shown on compile is misleading; at least 384 bytes are needed beyond this, at runtime, for dynamically allocated buffers and heap items, and prior to moving things to PROGMEM there was only 374 available!
 
 ## Usage
 
