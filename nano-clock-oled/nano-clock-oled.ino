@@ -21,6 +21,7 @@
 // Output Strings, Sizes and Positions
 #define WAVE_HEIGHT 12
 #define WAVE_VPOS   63
+#define WAVE_WIDTH  16
 
 #define FREQ_VPOS   45
 
@@ -270,14 +271,11 @@ void drawFrequency(const Band *band, const Frequency* frequency) {
   u8g2.drawStr((SCREEN_WIDTH - text_width) / 2, FREQ_VPOS, frequency_text);
 }
 
-// Computes the wave form width based on current state
+// Computes the wave form width based on current clock band
 uint8_t getWaveFormWidth() {
-  // First get a divider for the band ...
-  uint8_t divider = clock_state.band * 2;
-  // ... and make sure it is at least 1
-  if (divider < 1) divider = 1;
-  uint8_t width = 32 - (clock_state.frequency * 2);
-  return width / divider;
+  // Only considers band; must be a multiple of 2 (or the
+  // scrolling will stutter).
+  return WAVE_WIDTH >> clock_state.band;  
 }
 
 // Draws a lit (on == true) or unlit "STEP" indicator with waveform "pulse"
@@ -427,8 +425,7 @@ void onPressedStep() {
     if (clock_state.state == States::STOP) {
       clock_state.state = States::RUN;
       displayLabel(RUN_LABEL);
-      wait(MSG_DURATION);
-      setFrequency(clock_state.currentFrequency());
+      updateState(MSG_DURATION);      
     } else {
       clock_state.state = States::STOP;
       TCCR1A = OC1A_OFF;
@@ -482,8 +479,7 @@ void onLongPressFreq() {
   char band_text[TABLE_TEXT_LEN + 1];
   strcpy_P(band_text, next->display_text);
   displayOLED(band_text);
-  wait(MSG_DURATION);
-  setFrequency(clock_state.currentFrequency());
+  updateState(MSG_DURATION);  
 }
 
 // Cycle the RESET pin LOW, then HIGH
@@ -591,5 +587,5 @@ void loop() {
   } while ( u8g2.nextPage() );
 
   // Animates the scrolling wave form if the clock is running  
-  if (clock_state.state == States::RUN ) waveform_scroll+=1;  
+  if (clock_state.state == States::RUN ) waveform_scroll+=1;   
 }
