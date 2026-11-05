@@ -38,6 +38,16 @@ This 2nd, and almost the simplest (just the core capabilities), "phi2" project p
 
 **nano-clock-core** is not much bigger than a standard 4-pin crystal oscillator can.
 
+### [nano-clock-oled](nano-clock-oled/)
+
+This is the 4th, and to-date most complex, "phi2" project.
+
+It is based on my "[nano-clock](nano-clock/)" project, but instead of a 4-digit, 14-segment alphanumeric LED display it uses an small OLED panel on an I2C interface for status and operational messages. The initial version has the same functionality as the original, excepting a display on/off toggle in place of brightness control.
+
+The display includes various status icons for which mode the clock is in (step vs. continuous clock), an animated waveform to indicate the clock is running, indicators for whether "reset on boot" is enabled, whether settings have been saved and if they've been changed since the last save.  And, finally, a large display that shows either the "step" pulse or the current clock frequency.
+
+![nano-clock-oled breadboard layout](nano-clock-oled/images/nano-clock-oled_breadboard.png)
+
 ### [tiny-clock](tiny-clock/)
 
 The third clock build in the "phi2" series, and to date the simplest, departs from the typical "Arduino Board" based model and instead makes direct use of a "raw" microcontroller; in this case the [ATtiny85](https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf).
