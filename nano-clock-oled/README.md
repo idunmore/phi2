@@ -37,7 +37,17 @@ An optional (disable by setting HEART_BEAT_RATE to 0) "heartbeat", separate from
 
 A "saved settings" indicator has been added (gear icon).  If present, settings have been saved.  If saved settings are present, an additional icon (check, uncheck) indicates if any settings have been changed since they were last saved.
 
-Note that the Arduino Nano has only 2KB of RAM, **half** of which would be required just to buffer the OLED display (and then doesn't leave enough for the remainder of the program), so **u8g2**'s "paged mode" is used.  Even in paged mode, it was necessary to move all tables and labels/strings into PROGMEM.  The display "~773" bytes of available RAM shown on compile is misleading; at least 384 bytes are needed beyond this, at runtime, for dynamically allocated buffers and heap items, and prior to moving things to PROGMEM there was only 374 available!
+Note that the Arduino Nano has only 2KB of RAM, **half** of which would be required just to buffer the OLED display (and then doesn't leave enough for the remainder of the program), so **u8g2**'s "paged mode" is used.  Even in paged mode, it was necessary to move all tables and labels/strings into PROGMEM.  The display "~776" bytes of available RAM shown on compile is misleading; at least 384 bytes are needed beyond this, at runtime, for dynamically allocated buffers and heap items, and prior to moving things to PROGMEM there was only 374 available!
+
+## Optimizations
+
+I've been through the code several times making various changes to a) reduce the overall amount of code, b) simplify the code that remains, c) improve performance and d) reduce the memory footprint (FLASH and SRAM) of the build.
+
+Optimizations include a single point of display update, simplification of the band and frequency tables (including eliminating index values and next-frequency points, and using modulo division to provide wrap-around of values instead of conditionals).  Moving text labels into FLASH (PROGMEM), using a custom "only those characters required" font (and a tool to regenerate it, see "tools/").  Simplified general logic.  And inlining more behavior and some string literals (via PSTR, from FLASH).
+
+The font-space reduction isn't strictly necessary; the full fonts fit within the 32KB of available FLASH memory, however since I was optimizing things I spent the time to do these also, so it's already handled if I add more functionality or want to use a smaller/custom board that has less flash available.
+
+Finally, I defaulted the u8g2 display constructor, and removed the supporting, explicit, #define addresses and I2C pin assignments, since the default behavior gets this correct both for the Arduino Nano but also other boards (where those values would then have to be changed in the **nano-clock-oled** code).
 
 ## Usage
 
@@ -70,14 +80,14 @@ In both cases, if you reach the end of the available frequencies or bands, the n
 #### Button 3 - Reset | Auto Reset Toggle
 
 - A short press generates a RESET event (brings the RESET PIN to LOW for the duration specified; default is 2ms per the WDC65C02).
-- A long press toggles between RsON and RsOFF, which determine whether a RESET cycle is executed when the nano-clock first powers on.  This is used to allow nano-clock-oled to control initial power on and clock management.  Note that this value only has an effect if it is SAVED.
+- A long press toggles between RstON and RstOFF, which determine whether a RESET cycle is executed when the nano-clock first powers on.  This is used to allow nano-clock-oled to control initial power on and clock management.  Note that this value only has an effect if it is SAVED.
 
-#### Button 4 - Brightness | Save Settings
+#### Button 4 - Display On/Off | Save Settings
 
-- A short press steps through the 16 brightness levels (0 to 15).  There is no "OFF" setting.  Depending on the specific LED module you are using, settings above 8 do not appear meaningfully different.  If you press button 4 when the brightness is 15, it will return to zero.
+- A short press steps toggles the OLED display ON and Off.  This setting _is_ saved, so bear that in mind if you power up and find there is no display shown. 
 - A long press SAVEs the current state of **nano-clock-oled** to EEPROM.  This will be reloaded on a reset or power off/on cycle so that **nano-clock-oled** can be used to both reset and initiate operation of a machine without further interaction.
 
-*Note:* If you want **nano-clock-oled** to automatically start from cold/reset with the clock RUNNING, you must perform the SAVE while the clock is in Run mode and RUN is toggled on (frequency display is blinking).
+*Note:* If you want **nano-clock-oled** to automatically start from cold/reset with the clock RUNNING, you must perform the SAVE while the clock is in Run mode and RUN is toggled on (clock mode shows running and the waveform is animated).
 
 ## Dependencies
 
