@@ -24,11 +24,16 @@
 #define WAVE_WIDTH  16
 
 #define FREQ_VPOS   45
+#define STATUS_VPOS 16
 
 #define STEP_VPOS   32
 #define STEP_HPOS   32
 #define STEP_RADIUS 16
 #define STEP_LENGTH 48
+
+// How fast the heart-beat icon "beats";
+// Lower is faster, 0 disables
+#define HEART_BEAT_RATE 1
 
 // Button Pins
 #define STEP_BUTTON  2
@@ -222,8 +227,16 @@ ClockState clock_state = {
   0, Modes::CLOCK, States::STOP, Reset::DISABLE, 0, 0, true
 };
 
+// Clock State Saved Flags
+bool is_saved = false;
+bool settings_changed = false;
+
 // Waveform Scroll Position
 uint8_t waveform_scroll = 0;
+
+// Heart beat starts as 0 (values <127 show no heart), and if
+// HEART_BEAT_RATE is non-zero, increments until it rolls over
+uint8_t heart_beat = 0;
 
 // Utility Functions
 
@@ -236,11 +249,15 @@ void wait(uint32_t milliseconds) {
 // Core Methods
 
 // Code Points for Status Glyphs
-#define CLOCK_GLYPH 0x007b
-#define STOP_GLYPH  0x00d9
-#define RUN_GLYPH   0x00d3
-#define STEP_GLYPH  0x00ee
-#define RESET_GLYPH 0x00f3
+#define CLOCK_GLYPH     0x007b
+#define STOP_GLYPH      0x00d9
+#define RUN_GLYPH       0x00d3
+#define STEP_GLYPH      0x00ee
+#define RESET_GLYPH     0x00f3
+#define SAVED_GLYPH     0x0081
+#define CHANGED_GLYPH   0x0078
+#define UNCHANGED_GLYPH 0x0079
+#define HEART_GLYPH     0x00b7
 
 // Draws the "status" line based on current state
 void drawStatusLine() {
@@ -249,15 +266,28 @@ void drawStatusLine() {
 
   // Clock Mode and State
   if (clock_state.mode == Modes::CLOCK) {
-    u8g2.drawGlyph(0, 16, CLOCK_GLYPH);
+    u8g2.drawGlyph(0, STATUS_VPOS, CLOCK_GLYPH);
     uint16_t state_glyph = clock_state.state == States::RUN ? RUN_GLYPH : STOP_GLYPH;  
-    if (clock_state.mode == Modes::CLOCK) u8g2.drawGlyph(16, 16, state_glyph);
+    if (clock_state.mode == Modes::CLOCK) u8g2.drawGlyph(16, STATUS_VPOS, state_glyph);
   } else {
-    u8g2.drawGlyph(30, 16, STEP_GLYPH);
+    u8g2.drawGlyph(30, STATUS_VPOS, STEP_GLYPH);
   }
 
   // Reset Status
-  if (clock_state.reset == Reset::ENABLE) u8g2.drawGlyph(48, 16, RESET_GLYPH);   
+  if (clock_state.reset == Reset::ENABLE) u8g2.drawGlyph(52, STATUS_VPOS, RESET_GLYPH);
+
+  // Saved/Changed Settings Status
+  if (is_saved) {
+    u8g2.drawGlyph(72, STATUS_VPOS, SAVED_GLYPH);
+    uint16_t is_changed_glyph = settings_changed ? UNCHANGED_GLYPH : CHANGED_GLYPH;
+    u8g2.drawGlyph(92, STATUS_VPOS, is_changed_glyph);
+  }
+
+  // Heart beat shows unit is running, NOT the clock pulses
+  if (heart_beat > 127) {
+    u8g2.drawGlyph(112, STATUS_VPOS, HEART_GLYPH);    
+  }
+  heart_beat+= HEART_BEAT_RATE;
 }
 
 // Draws the band/frequency text based on current state
@@ -330,21 +360,6 @@ void displayLabel(uint8_t label) {
   displayOLED(label_text);
 }
 
-// Sets the new clock frequency
-void setFrequency(const Frequency* frequency) {
-  // Disable the Timer's OUTPUT
-  TCCR1A = OC1A_OFF;  
-
-  // Set the Prescaler and Counter Mode
-  TCCR1B = pgm_read_byte(&frequency->tccr1b_flags);
-  OCR1A  = pgm_read_word(&frequency->timer_count);
-
-  // Enable the Timer's OUTPUT (Toggle Mode)
-  if( clock_state.state == States::RUN) {
-    TCCR1A = OC1A_TOGGLE;    
-  }
-}
-
 // Draws a square wave across the full screen width, always starting at X=0.
 // "cycle" is the width (in pixels) of each peak/trough; "offset" is how many
 // pixels into the waveform the drawing begins (i.e. its phase).
@@ -368,6 +383,21 @@ void drawWaveForm(uint8_t cycle, uint8_t offset) {
       u8g2.drawVLine(edge, WAVE_VPOS - WAVE_HEIGHT, WAVE_HEIGHT);
     }
     peak = !peak;
+  }
+}
+
+// Sets the new clock frequency
+void setFrequency(const Frequency* frequency) {
+  // Disable the Timer's OUTPUT
+  TCCR1A = OC1A_OFF;  
+
+  // Set the Prescaler and Counter Mode
+  TCCR1B = pgm_read_byte(&frequency->tccr1b_flags);
+  OCR1A  = pgm_read_word(&frequency->timer_count);
+
+  // Enable the Timer's OUTPUT (Toggle Mode)
+  if( clock_state.state == States::RUN) {
+    TCCR1A = OC1A_TOGGLE;    
   }
 }
 
@@ -399,12 +429,12 @@ void ClockState::Load() {
   if (data.sentinel != EEPROM_SENTINEL) return;
 
   // Valid save, so restore state!
+  is_saved = true;
+  settings_changed = false;
   *this = data;
-  //disp.setBrightness(brightness);
   if (reset == Reset::ENABLE) doReset();
 
-  // Update the display and blink rate, starting the clock
-  // if necessary
+  // Update the display and start the clock if necessary
   updateState(0);
 }
 
@@ -413,6 +443,9 @@ void ClockState::Save() {
   sentinel = EEPROM_SENTINEL;
   // Store the data at the start of the EEPROM's memory
   EEPROM.put(0, *this);
+  // Set saved state flags
+  is_saved = true;
+  settings_changed = false;
 }
 
 // Button Event Handlers
@@ -421,6 +454,9 @@ void ClockState::Save() {
 void onPressedStep() {
   // Toggle CLOCK/STEP modes
   if (clock_state.mode == Modes::CLOCK) {
+    // Saveable state changed
+    settings_changed = true;
+
     // Toggle RUN/STOP state
     if (clock_state.state == States::STOP) {
       clock_state.state = States::RUN;
@@ -447,7 +483,8 @@ void onPressedStep() {
 }
 
 // Switch between Single STEP and CLOCK modes
-void onLongPressStep() {  
+void onLongPressStep() {
+  // Toggle STEP/CLOCK mode
   if (clock_state.mode == Modes::SINGLE) {
     clock_state.mode = Modes::CLOCK;
     displayLabel(CLOCK_LABEL);
@@ -459,7 +496,9 @@ void onLongPressStep() {
     clock_state.state = States::STOP;
     TCCR1A = OC1A_OFF;
     wait(MSG_DURATION);
-  }  
+  }
+  // Saveable state changed
+  settings_changed = true;    
 }
 
 // Next Frequency in current band
@@ -468,34 +507,36 @@ void onPressedFreq() {
     (const Frequency*)pgm_read_ptr(&clock_state.currentFrequency()->next_frequency);
   clock_state.frequency = pgm_read_byte(&next->index);
   setFrequency(clock_state.currentFrequency());
+
+  // Saveable state changed
+  settings_changed = true;  
 }
 
 // Next Frequency Band
-void onLongPressFreq() {
-  //disp.blinkRate(0);
+void onLongPressFreq() {  
   const Band* next = (const Band*)pgm_read_ptr(&clock_state.currentBand()->next_band);
   clock_state.band = pgm_read_byte(&next->index);
   clock_state.frequency = 0;
   char band_text[TABLE_TEXT_LEN + 1];
   strcpy_P(band_text, next->display_text);
   displayOLED(band_text);
-  updateState(MSG_DURATION);  
+  updateState(MSG_DURATION);
+
+  // Saveable state changed
+  settings_changed = true;   
 }
 
 // Cycle the RESET pin LOW, then HIGH
 void onPressedReset() {
   // Show operation
   displayLabel(RESET_LABEL);
-  // Disable blinking if running
-  if (clock_state.state == States::RUN) ;//disp.blinkRate(0);
   // Perform the RESET
   doReset();
   updateState(MSG_DURATION);  
 }
 
 // Toggles RESET on Start up flag
-void onLongPressReset() {
-  //disp.blinkRate(0);
+void onLongPressReset() {  
   if (clock_state.reset == Reset::ENABLE) {
     clock_state.reset = Reset::DISABLE;
     displayLabel(RESET_OFF_LABEL);
@@ -503,19 +544,23 @@ void onLongPressReset() {
     clock_state.reset = Reset::ENABLE;
     displayLabel(RESET_ON_LABEL);
   }
-  updateState(MSG_DURATION);  
+  updateState(MSG_DURATION); 
+
+  // Saveable state changed
+  settings_changed = true;   
 }
 
 // Short press on SAVE toggles display on/off
 void onPressedSave() {
   if (clock_state.display_enable) u8g2.clearDisplay();
-  clock_state.display_enable = !clock_state.display_enable;  
+  clock_state.display_enable = !clock_state.display_enable;
+
+   // Saveable state changed
+  settings_changed = true;    
 }
 
 // Save State to EEPROM
-void onLongPressSave() {
-  // Disable blinking if running
-  if (clock_state.state == States::RUN) ;//disp.blinkRate(0);
+void onLongPressSave() {  
   // Display operation
   displayLabel(SAVE_LABEL);
   clock_state.Save();

@@ -29,15 +29,15 @@ It provides a more flexible alternative to [Ben Eater's](https://eater.net) [650
 
 ## Status
 
-This is a currently **work-in-progress**.
+**nano-clock-oled** uses the core "clock" and "features" implementation from my original [nano-clock](https://github.com/idunmore/phi2/tree/main/nano-clock) project.  These are _feature complete_, though not thoroughly tested yet.
 
-**nano-clock-oled** uses the core "clock" and "features" implementation from my original [nano-clock](https://github.com/idunmore/phi2/tree/main/nano-clock) project.  These are _here and functional_, though not thoroughly tested yet.
+Status display (top line) and "running" waveforms are fully implemented.
 
-Switching from the 4-digit, 14-segment, alphanumeric LED display to the graphics-capable 128x64 pixel OLED display is complete, excepting that the top (yellow) status line is only partially implemented (some status icons still to implement).
+An optional (disable by setting HEART_BEAT_RATE to 0) "heartbeat", separate from the clock-pulse operation, is provided to allow easy determination of whether the clock is responding to input.
 
-The animated "frequency waveform" is working, but needs some fine-tuning (it is not meant to be a relative display not an absolute one).
+A "saved settings" indicator has been added (gear icon).  If present, settings have been saved.  If saved settings are present, an additional icon (check, uncheck) indicates if any settings have been changed since they were last saved.
 
-Note that the Arduino Nano has only 2KB of RAM, **half** of which would be required just to buffer the OLED display (and then doesn't leave enough for the remainder of the program), so **u8g2**'s "paged mode" is used.  Even in paged mode, it was necessary to move all tables and labels/strings into PROGMEM.  The display "~775" bytes of available RAM shown on compile is misleading; at least 384 bytes are needed beyond this, at runtime, for dynamically allocated buffers and heap items, and prior to moving things to PROGMEM there was only 374 available!
+Note that the Arduino Nano has only 2KB of RAM, **half** of which would be required just to buffer the OLED display (and then doesn't leave enough for the remainder of the program), so **u8g2**'s "paged mode" is used.  Even in paged mode, it was necessary to move all tables and labels/strings into PROGMEM.  The display "~773" bytes of available RAM shown on compile is misleading; at least 384 bytes are needed beyond this, at runtime, for dynamically allocated buffers and heap items, and prior to moving things to PROGMEM there was only 374 available!
 
 ## Usage
 
