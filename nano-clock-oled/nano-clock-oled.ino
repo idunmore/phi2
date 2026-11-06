@@ -253,7 +253,7 @@ void drawStatusLine() {
 // Draws text, horizontally centered, in the large font
 void drawCenteredText(const char* text) {
   u8g2.setFont(clock_text_font);
-  u8g2.drawStr((SCREEN_WIDTH - u8g2.getStrWidth(text)) / 2, FREQ_VPOS, text);
+  u8g2.drawStr((SCREEN_WIDTH - (uint8_t)u8g2.getStrWidth(text)) / 2, FREQ_VPOS, text);
 }
 
 // Draws a lit (on == true) or unlit "STEP" indicator with waveform "pulse"
