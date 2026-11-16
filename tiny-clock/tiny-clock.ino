@@ -267,6 +267,9 @@ void loop() {
   freqButton.read();
   stepButton.read();
 
+  // If the clock isn't running, we're done.
+  if (clock_state.state == States::STOP) return;
+
   // Clock IS running, so blink the LED at the designated frequency's blink_rate
   if (millis() - lastMillis >= clock_state.currentFrequency().blink_rate) {
     lastMillis = millis();
